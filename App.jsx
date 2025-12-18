@@ -23,80 +23,77 @@ import Bill from "./src/screens/BillHistory";
 import Payment from "./src/screens/Payment";
 import PaymentHistory from "./src/screens/PaymentHistory";
 import RaiseTicket from "./src/screens/RaiseTicket";
-import LoginScreen from "./src/Auth/LoginScreen";
 import AuthScreen from "./src/Auth/AuthScreen";
 import BillScreen from "./src/screens/BillDue";
-import { UserProvider } from "./src/context/UserContext";
-import { SessionProvider, useSession } from "./src/context/SessionContext";
+
 import TenantApprovalPending from "./src/screens/ApprovalPending/TenantApprovalPending";
 import TenantRequestCancelled from "./src/screens/ApprovalPending/TenantRequestCancelled";
 
+import { UserProvider } from "./src/context/UserContext";
+import { SessionProvider, useSession } from "./src/context/SessionContext";
 
 const AppContent = () => {
   const { session, saveSession, isReady } = useSession();
 
-  // ⏳ Wait until we load session from storage
-  if (!isReady) {
-    return null; // or a splash / loader component
-  }
-
-  if (!session) {
-  return <AuthScreen onLoginSuccess={saveSession} />;
-}
-
+  // ✅ ALL HOOKS FIRST (NO RETURNS ABOVE THIS)
   const [selectedPage, setSelectedPage] = useState("dashboard");
   const [notifOpen, setNotifOpen] = useState(false);
   const [isCloudDown, setIsCloudDown] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notifications] = useState([]);
 
+  // 🔁 LOGIN REDIRECT LOGIC
   useEffect(() => {
-  if (
-    session?.clientTypeId === 2 &&     // Tenant
-    session?.isApproved === false
-  ) {
-    setSelectedPage("approval-pending");
-  }
-}, [session]);
+    if (!session) return;
 
+    if (session?.Status === 1 || session?.status === 1) {
+      setSelectedPage("dashboard");
+    } else if (session?.SubmissionStatus === "Rejected") {
+      setSelectedPage("approval-cancelled");
+    } else {
+      setSelectedPage("approval-pending");
+    }
+  }, [session]);
 
+  // ⏱ Fake loader
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+    const timer = setTimeout(() => setLoading(false), 1000);
     return () => clearTimeout(timer);
   }, []);
 
-  const [notifications] = useState([
-    // ... your notifications
-  ]);
-
- const handleMenuSelect = (key) => {
-  if (key === "logout") {
-    saveSession(null);   // ✅ this now clears memory + AsyncStorage
-    return;
+  // 🚫 NOW it is safe to return conditionally
+  if (!isReady) {
+    return null;
   }
 
-  setSelectedPage(key);
-};
-const handleHeaderLogout = () => {
-  saveSession(null); // ✅ clears session + AsyncStorage
-};
+  if (!session) {
+    return <AuthScreen onLoginSuccess={saveSession} />;
+  }
 
-  const handleNotificationNavigation = (screenName, params) => {
-    setNotifOpen(false);
-
-    if (screenName === "NotificationsScreen") {
-      setSelectedPage("Notifications");
-    } else if (screenName === "NotificationDetail") {
-      setSelectedPage("NotificationDetail");
-    } else {
-      setSelectedPage(screenName);
+  const handleMenuSelect = (key) => {
+    if (key === "logout") {
+      saveSession(null);
+      return;
     }
+    setSelectedPage(key);
+  };
+
+  const handleHeaderLogout = () => {
+    saveSession(null);
+  };
+
+  const handleNotificationNavigation = (screenName) => {
+    setNotifOpen(false);
+    setSelectedPage(screenName);
   };
 
   const handleRetry = () => {
     setIsCloudDown(false);
   };
+
+  const isApprovalScreen =
+    selectedPage === "approval-pending" ||
+    selectedPage === "approval-cancelled";
 
   if (isCloudDown) {
     return (
@@ -118,51 +115,53 @@ const handleHeaderLogout = () => {
 
         <View style={styles.root}>
           <View style={styles.mainContent}>
-           <Header
-            onPress={handleMenuSelect}
-            onNavigate={handleMenuSelect}
-            onToggleNotifications={() => setNotifOpen((v) => !v)}
-            unreadCount={notifications.filter((n) => n.unread).length}
-            tenantName={session?.clientName || "Tenant"}
-            tenantAvatar={session?.profileImage}
-            onLogout={handleHeaderLogout}
-            />
+
+            {/* HEADER */}
+            {!isApprovalScreen && (
+              <Header
+                onPress={handleMenuSelect}
+                onNavigate={handleMenuSelect}
+                onToggleNotifications={() => setNotifOpen((v) => !v)}
+                unreadCount={notifications.filter((n) => n.unread).length}
+                tenantName={session?.clientName || "Tenant"}
+                tenantAvatar={session?.profileImage}
+                onLogout={handleHeaderLogout}
+              />
+            )}
+
+            {/* SCREENS */}
             {selectedPage === "dashboard" && (
               <Dashboard loading={loading} onPress={handleMenuSelect} />
             )}
+
             {selectedPage === "approval-pending" && (
-            <TenantRequestCancelled />
+              <TenantApprovalPending onBack={() => saveSession(null)} />
             )}
+
+            {selectedPage === "approval-cancelled" && (
+              <TenantRequestCancelled onBack={() => saveSession(null)} />
+            )}
+
             {selectedPage === "profile" && <Profile loading={loading} />}
-            {selectedPage === "request-moveout" && (
-              <RequestMove loading={loading} />
-            )}
-            {selectedPage === "Notifications" && (
-              <NotificationsScreen loading={loading} />
-            )}
-            {selectedPage === "my-contract" && (
-              <MyContract loading={loading} />
-            )}
-            {selectedPage === "renew-contract" && (
-              <RenewContract loading={loading} />
-            )}
-            {selectedPage === "bill-history" && 
-            <Bill loading={loading} />}
-             {selectedPage === "Bill-Due" && 
-            <BillScreen loading={loading} />}
-            {selectedPage === "payment-history" && (
-              <PaymentHistory loading={loading} />
-            )}
-            {selectedPage === "raise-ticket" && (
-              <RaiseTicket loading={loading} />
-            )}
+            {selectedPage === "request-moveout" && <RequestMove loading={loading} />}
+            {selectedPage === "Notifications" && <NotificationsScreen loading={loading} />}
+            {selectedPage === "my-contract" && <MyContract loading={loading} />}
+            {selectedPage === "renew-contract" && <RenewContract loading={loading} />}
+            {selectedPage === "bill-history" && <Bill loading={loading} />}
+            {selectedPage === "Bill-Due" && <BillScreen loading={loading} />}
+            {selectedPage === "payment-history" && <PaymentHistory loading={loading} />}
+            {selectedPage === "raise-ticket" && <RaiseTicket loading={loading} />}
             {selectedPage === "pay-now" && (
               <Payment onHome={() => setSelectedPage("dashboard")} />
             )}
           </View>
 
-          <Footer onPress={handleMenuSelect} selectedPage={selectedPage} />
+          {/* FOOTER */}
+          {!isApprovalScreen && (
+            <Footer onPress={handleMenuSelect} selectedPage={selectedPage} />
+          )}
 
+          {/* NOTIFICATIONS */}
           <NotificationDropdown
             open={notifOpen}
             onClose={() => setNotifOpen(false)}
@@ -180,13 +179,12 @@ const handleHeaderLogout = () => {
   );
 };
 
-
 const App = () => (
-<SessionProvider>
-  <UserProvider>
-    <AppContent />
-  </UserProvider>
-</SessionProvider>
+  <SessionProvider>
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
+  </SessionProvider>
 );
 
 const styles = StyleSheet.create({
