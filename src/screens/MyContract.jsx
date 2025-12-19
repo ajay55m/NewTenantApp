@@ -128,203 +128,151 @@ useEffect(() => {
   const contractExpiry = formatDate(contract.ContractExpiry);
   const isActive = contract.ContractStatus === true || contract.ContractStatus === "true" || contract.ContractStatus === 1 || contract.ContractStatus === "1";
   const contractTypeText = (contract.ContractCategory === 0 || contract.ContractCategory === "0") ? "RESIDENTIAL" : "COMMERCIAL";
+  const isEmptyState =
+  !loading &&
+  (!contractData ||
+    (Array.isArray(contractData) && contractData.length === 0));
 
-  return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* GREETING CARD (has its own skeleton) */}
-      <GreetingCard loading={loading} />
+const hasContracts =
+  !loading &&
+  Array.isArray(contractData) &&
+  contractData.length > 0;
 
-      {/* ------------- HEADER STRIP ------------- */}
-      {loading ? (
-        <SkeletonBox
-          style={{ width: "60%", height: 40, borderRadius: 10, marginBottom: 12 }}
-        />
-      ) : !showContractDetails ? (
-        <View style={styles.headerStrip}>
-          <Text style={styles.headerStripText}>My Contract</Text>
+return (
+  <ScrollView
+    style={styles.container}
+    contentContainerStyle={styles.content}
+    showsVerticalScrollIndicator={false}
+  >
+    {/* ================= GREETING CARD ================= */}
+    {hasContracts && <GreetingCard />}
+
+
+
+
+    {/* ================= HEADER (ALWAYS VISIBLE) ================= */}
+    {loading ? (
+      <SkeletonBox
+        style={{ width: "60%", height: 40, borderRadius: 10, marginBottom: 12 }}
+      />
+    ) : !showContractDetails ? (
+      <View style={styles.headerStrip}>
+        <Text style={styles.headerStripText}>My Contract</Text>
+      </View>
+    ) : (
+      <View style={styles.detailsHeaderRow}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => setShowContractDetails(false)}
+          activeOpacity={0.7}
+        >
+          <Image
+            source={require("../../assets/images/back-arrow.png")}
+            style={styles.backIcon}
+          />
+        </TouchableOpacity>
+        <View style={[styles.headerStrip, styles.headerStripFlex]}>
+          <Text style={styles.headerStripText}>View Contract Details</Text>
         </View>
-      ) : (
-        <View style={styles.detailsHeaderRow}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => setShowContractDetails(false)}
-            activeOpacity={0.7}
-          >
-            <Image
-              source={require("../../assets/images/back-arrow.png")}
-              style={styles.backIcon}
-            />
-          </TouchableOpacity>
-          <View style={[styles.headerStrip, styles.headerStripFlex]}>
-            <Text style={styles.headerStripText}>View Contract Details</Text>
+      </View>
+    )}
+
+    {/* ================= CONTENT SWITCH ================= */}
+    {loading ? (
+      /* ---------------- LOADING ---------------- */
+      <>
+        <View style={[styles.summaryCard, styles.skeletonCard]}>
+          <SkeletonBox style={{ width: "50%", height: 18, marginBottom: 10 }} />
+          <SkeletonBox style={{ width: "80%", height: 20, marginBottom: 10 }} />
+          <SkeletonBox style={{ width: "100%", height: 40 }} />
+        </View>
+      </>
+    ) : isEmptyState ? (
+      /* ---------------- EMPTY STATE (PROFILE STYLE) ---------------- */
+      <View style={styles.summaryCard}>
+        <View style={styles.emptyBox}>
+          <Image
+            source={require("../../assets/images/account.png")}
+            style={{ width: 50, height: 50, marginBottom: 16 }}
+          />
+          <Text style={styles.emptyTitle}>No Contract Found</Text>
+          <Text style={styles.emptyText}>
+            There is no contract information available for this account.
+          </Text>
+        </View>
+      </View>
+    ) : !showContractDetails ? (
+      /* ---------------- CONTRACT SUMMARY ---------------- */
+      <View style={styles.summaryCard}>
+        <View style={[styles.summaryRow, styles.coloredRow]}>
+          <Text style={styles.summaryLabel}>Contract Type</Text>
+          <View style={styles.typeBadge}>
+            <Text style={styles.typeBadgeText}>{contractTypeText}</Text>
           </View>
         </View>
-      )}
 
-      {loading ? (
-        <>
-          {/* Summary skeleton card */}
-          <View style={[styles.summaryCard, styles.skeletonCard]}>
-            <SkeletonBox
-              style={{
-                width: "50%",
-                height: 18,
-                borderRadius: 8,
-                marginBottom: 10,
-              }}
-            />
-            <SkeletonBox
-              style={{
-                width: "80%",
-                height: 20,
-                borderRadius: 8,
-                marginBottom: 10,
-              }}
-            />
-            <SkeletonBox
-              style={{
-                width: "60%",
-                height: 18,
-                borderRadius: 8,
-                marginBottom: 12,
-              }}
-            />
-            <SkeletonBox
-              style={{
-                width: "100%",
-                height: 40,
-                borderRadius: 10,
-                marginTop: 4,
-              }}
-            />
+        <View style={[styles.summaryRow, styles.coloredRow]}>
+          <Text style={styles.summaryValueMain}>{propertyName}</Text>
+          <View style={styles.approvedBadge}>
+            <Text style={styles.approvedText}>
+              {isActive ? "Approved" : "Inactive"}
+            </Text>
           </View>
-          <View style={[styles.detailsCard, styles.skeletonCard]}>
-            <View style={styles.detailsTable}>
-              {Array.from({ length: 5 }).map((_, idx) => (
-                <View
-                  key={idx}
-                  style={[
-                    styles.detailRow,
-                    { borderBottomWidth: idx === 4 ? 0 : 1 },
-                  ]}
-                >
-                  <SkeletonBox
-                    style={{ width: "40%", height: 14, borderRadius: 6 }}
-                  />
-                  <SkeletonBox
-                    style={{ width: "35%", height: 14, borderRadius: 6 }}
-                  />
-                </View>
-              ))}
-            </View>
-
-            <SkeletonBox
-              style={{
-                width: "100%",
-                height: 50,
-                borderRadius: 10,
-                marginBottom: 10,
-              }}
-            />
-            <SkeletonBox
-              style={{
-                width: "100%",
-                height: 50,
-                borderRadius: 10,
-              }}
-            />
-          </View>
-
-          <View style={{ height: 40 }} />
-        </>
-      ) : !showContractDetails ? (
-        <View style={styles.summaryCard}>
-          <View style={[styles.summaryRow, styles.coloredRow]}>
-            <Text style={styles.summaryLabel}>Contract Type</Text>
-            <View style={styles.typeBadge}>
-              <Text style={styles.typeBadgeText}>
-                {contractTypeText}
-              </Text>
-            </View>
-          </View>
-
-          <View style={[styles.summaryRow, styles.coloredRow]}>
-            <Text style={styles.summaryValueMain}>{propertyName}</Text>
-            <View style={styles.approvedBadge}>
-              <Text style={styles.approvedText}>
-                {isActive ? "Approved" : "Inactive"}
-              </Text>
-            </View>
-          </View>
-
-          <View
-            style={[styles.summaryRow, styles.coloredRow, { marginTop: 6 }]}
-          >
-            <Text style={styles.summaryLabel}>Contract Expiry</Text>
-            <Text style={styles.summaryExpiry}>{contractExpiry}</Text>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.viewRow]}
-            onPress={() => setShowContractDetails(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.viewRowText}>View Contract Details</Text>
-            <Image
-              source={require("../../assets/images/right.png")}
-              style={styles.buildingIcon}
-            />
-          </TouchableOpacity>
         </View>
-      ) : (
-        <View style={styles.detailsCard}>
-          <View style={styles.detailsTable}>
-            <DetailRow
-              label="Property"
-              value={propertyName}
-              colored
-            />
-            <DetailRow
-              label="Office / Unit"
-              value={officeId}
-              colored
-            />
-            <DetailRow
-              label="Contract Type"
-              value={contractTypeText}
-              colored
-            />
-            <DetailRow
-              label="Status"
-              value={isActive ? "Active" : "Inactive"}
-              colored
-            />
-            <DetailRow
-              label="Contract ID"
-              value={contractId}
-              hideBorder
-              colored
-            />
-          </View>
-          <TouchableOpacity style={[styles.dateBox]} activeOpacity={0.7}>
-            <View style={styles.dateRowLeft}>
-              <View style={styles.dateIconBox}>
-                <Text style={styles.dateIcon}>📅</Text>
-              </View>
-              <Text style={styles.dateLabel}>Contract Expiry Date</Text>
-            </View>
-            <Text style={styles.dateValue}>{contractExpiry}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
-      <View style={{ height: 40 }} />
-    </ScrollView>
-  );
+        <View style={[styles.summaryRow, styles.coloredRow]}>
+          <Text style={styles.summaryLabel}>Contract Expiry</Text>
+          <Text style={styles.summaryExpiry}>{contractExpiry}</Text>
+        </View>
+
+        <TouchableOpacity
+          style={styles.viewRow}
+          onPress={() => setShowContractDetails(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.viewRowText}>View Contract Details</Text>
+          <Image
+            source={require("../../assets/images/right.png")}
+            style={styles.buildingIcon}
+          />
+        </TouchableOpacity>
+      </View>
+    ) : (
+      /* ---------------- CONTRACT DETAILS ---------------- */
+      <View style={styles.detailsCard}>
+        <View style={styles.detailsTable}>
+          <DetailRow label="Property" value={propertyName} colored />
+          <DetailRow label="Office / Unit" value={officeId} colored />
+          <DetailRow label="Contract Type" value={contractTypeText} colored />
+          <DetailRow
+            label="Status"
+            value={isActive ? "Active" : "Inactive"}
+            colored
+          />
+          <DetailRow
+            label="Contract ID"
+            value={contractId}
+            hideBorder
+            colored
+          />
+        </View>
+
+        <TouchableOpacity style={styles.dateBox} activeOpacity={0.7}>
+          <View style={styles.dateRowLeft}>
+            <View style={styles.dateIconBox}>
+              <Text style={styles.dateIcon}>📅</Text>
+            </View>
+            <Text style={styles.dateLabel}>Contract Expiry Date</Text>
+          </View>
+          <Text style={styles.dateValue}>{contractExpiry}</Text>
+        </TouchableOpacity>
+      </View>
+    )}
+
+    <View style={{ height: 40 }} />
+  </ScrollView>
+);
+
 };
 
 const DetailRow = ({ label, value, hideBorder, colored }) => (
@@ -563,6 +511,25 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#1d4ed8",
   },
+  emptyBox: {
+  paddingVertical: 40,
+  paddingHorizontal: 20,
+  alignItems: "center",
+},
+
+emptyTitle: {
+  fontSize: 16,
+  fontWeight: "700",
+  color: "#111827",
+  marginBottom: 6,
+},
+
+emptyText: {
+  fontSize: 13,
+  color: "#6b7280",
+  textAlign: "center",
+},
+
 });
 
 export default MyContract;

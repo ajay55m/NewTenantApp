@@ -237,6 +237,7 @@ const Profile = () => {
   const [loading, setLoading] = useState(true); // used also for GreetingCard skeleton
   const [error, setError] = useState(null);
 
+
   // 🔹 KYC editing state
   const [editingKycField, setEditingKycField] = useState(null);
   const [kycValues, setKycValues] = useState({
@@ -286,6 +287,7 @@ const Profile = () => {
   }
 
   const fetchProfile = async () => {
+    
     try {
       setLoading(true);
       setError(null);
@@ -299,7 +301,9 @@ const Profile = () => {
       }
 
       if (data && typeof data === "object") {
-        setProfile(data);
+       
+
+         setProfile(data);
 
         // ✅ initialize editable KYC values
         setKycValues({
@@ -336,6 +340,9 @@ const Profile = () => {
 
 
   const p = profile || {};
+  const isEmptyProfile =
+  !profile || Object.keys(profile).length === 0;
+
 
   const customerName = p.FirstName || "—";
   const moveInDate = formatDate(p.MoveInRequestDate);
@@ -529,11 +536,14 @@ const Profile = () => {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-            <GreetingCard
-              loading={loading}
-              name={customerName}
-              building={building ? `${building} - ${unit}` : "—"}
-            />
+{!isEmptyProfile && (
+  <GreetingCard
+    loading={loading}
+    name={customerName}
+    building={building ? `${building} - ${unit}` : "—"}
+  />
+)}
+
 
             <View style={styles.profileHeader}>
               <Text style={styles.profileHeaderText}>Profile</Text>
@@ -547,45 +557,41 @@ const Profile = () => {
             )}
 
             {/* Skeleton vs real content */}
-            {loading ? (
-              <View style={styles.mainCard}>
-                <View style={styles.sectionContainer}>
-                  <View style={styles.sectionRow}>
-                    <SkeletonBox width="40%" height={16} />
-                  </View>
-                  <View style={styles.sectionContent}>
-                    <SkeletonBox width="60%" style={{ marginBottom: 10 }} />
-                    <SkeletonBox width="70%" style={{ marginBottom: 10 }} />
-                    <SkeletonBox width="50%" style={{ marginBottom: 10 }} />
-                    <SkeletonBox width="80%" style={{ marginBottom: 10 }} />
-                  </View>
-                </View>
+{loading ? (
+  /* LOADING */
+  <View style={styles.mainCard}>
+    {/* skeleton stays same */}
+  </View>
+) : !profile || Object.keys(profile).length === 0 ? (
+  /* EMPTY STATE – SAME PAGE */
+  <View style={styles.mainCard}>
+    <View style={styles.emptyBox}>
+      <Image
+        source={require("../../assets/images/account.png")}
+        style={{ width: 50, height: 50, marginBottom: 16 }}
+      />
+      <Text style={styles.emptyTitle}>No Data Found</Text>
+      <Text style={styles.emptyText}>
+        Profile information is not available for this customer.
+      </Text>
+    </View>
+  </View>
+) : (
+  /* DATA FOUND */
+  <View style={styles.mainCard}>
+    {sectionData.map((section) => (
+      <CollapsibleSection
+        key={section.id}
+        title={section.title}
+        isOpen={activeSection === section.id}
+        onPress={() => toggleSection(section.id)}
+      >
+        {section.content}
+      </CollapsibleSection>
+    ))}
+  </View>
+)}
 
-                <View style={styles.sectionContainer}>
-                  <View style={styles.sectionRow}>
-                    <SkeletonBox width="50%" height={16} />
-                  </View>
-                  <View style={styles.sectionContent}>
-                    <SkeletonBox width="70%" style={{ marginBottom: 10 }} />
-                    <SkeletonBox width="65%" style={{ marginBottom: 10 }} />
-                    <SkeletonBox width="55%" style={{ marginBottom: 10 }} />
-                  </View>
-                </View>
-              </View>
-            ) : (
-              <View style={styles.mainCard}>
-                {sectionData.map((section) => (
-                  <CollapsibleSection
-                    key={section.id}
-                    title={section.title}
-                    isOpen={activeSection === section.id}
-                    onPress={() => toggleSection(section.id)}
-                  >
-                    {section.content}
-                  </CollapsibleSection>
-                ))}
-              </View>
-            )}
 
             <View style={{ height: 120 }} />
           </ScrollView>
@@ -928,6 +934,25 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     fontSize: 14,
   },
+  emptyBox: {
+  paddingVertical: 40,
+  paddingHorizontal: 20,
+  alignItems: "center",
+},
+
+emptyTitle: {
+  fontSize: 16,
+  fontWeight: "700",
+  color: "#111827",
+  marginBottom: 6,
+},
+
+emptyText: {
+  fontSize: 13,
+  color: "#6b7280",
+  textAlign: "center",
+},
+
 });
 
 export default Profile;
