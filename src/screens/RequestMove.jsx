@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   Switch,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingCard from "../components/GreetingCard";
@@ -50,6 +51,7 @@ const RequestMoveout = () => {
     const { ok, data } = await getApprovedClient(userId);
     if (!ok) throw new Error("Profile API failed");
     setProfile(data);
+
   };
 
   /* ------------------ FETCH CONTRACT ------------------ */
@@ -86,6 +88,7 @@ const RequestMoveout = () => {
   if (showSkeleton) {
     return (
       <SafeAreaView style={styles.safeArea}>
+        
         <ScrollView contentContainerStyle={styles.skeletonContainer}>
           <View style={styles.skeletonHeader} />
           <View style={styles.skeletonGreetingCard} />
@@ -106,162 +109,210 @@ const RequestMoveout = () => {
     contract?.OfficeNumber ||
     session?.officeNumber ||
     "—";
+const isEmptyState =
+  !profile ||
+  Object.keys(profile).length === 0 ||
+  !contract;
 
   // ---------- REAL UI ----------
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <GreetingCard />
+  <SafeAreaView style={styles.safeArea}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ================= PAGE HEADER (ALWAYS) ================= */}
+      <Text style={styles.sectionTitle}>Request Moveout</Text>
 
-        <Text style={styles.sectionTitle}>Request Moveout</Text>
-
+      {/* ================= CONTENT SWITCH ================= */}
+      {showSkeleton ? (
+        /* ---------------- LOADING (SKELETON) ---------------- */
         <View style={styles.card}>
-          <View style={styles.row}>
-            <Text style={styles.label}>Community</Text>
-            <Text style={styles.value}>{community}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>Building Name</Text>
-            <Text style={styles.value}>{building}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>Unit</Text>
-            <Text style={styles.value}>{unit}</Text>
-          </View>
-
-          <View style={styles.row}>
-            <Text style={styles.label}>Contract Type</Text>
-            <Text style={styles.value}>Individual</Text>
-          </View>
-
-          <View style={styles.contractBox}>
-            <Text style={styles.contractLabel}>Contract Start Date</Text>
-            <Text style={styles.contractDate}>
-              {formatDate(contract?.ContractStartDate)}
-            </Text>
-          </View>
-
-          <View style={styles.contractBox}>
-            <Text style={styles.contractLabel}>Contract End Date</Text>
-            <Text style={styles.contractDate}>
-              {formatDate(contract?.ContractEndDate)}
-            </Text>
-          </View>
-
-          <View style={styles.checkboxRow}>
-            <TouchableOpacity
-              style={styles.checkbox}
-              onPress={() => setIsFinalBillChecked(!isFinalBillChecked)}
-            >
-              <View
-                style={[
-                  styles.checkboxBox,
-                  isFinalBillChecked && styles.checkboxChecked,
-                ]}
-              >
-                {isFinalBillChecked && (
-                  <Text style={styles.checkmark}>✓</Text>
-                )}
-              </View>
-            </TouchableOpacity>
-            <Text style={styles.checkboxLabel}>Request for Final Bill</Text>
-          </View>
-
-          {isFinalBillChecked && (
-            <View style={styles.finalBillContent}>
-              <Text style={styles.finalBillTitle}>Request For Final Bill</Text>
-
-              <Text style={styles.inputLabel}>Remarks</Text>
-              <TextInput
-                style={styles.remarksInput}
-                multiline
-                value={remarks}
-                onChangeText={setRemarks}
-                placeholder="Write your comments here..."
-                placeholderTextColor="#9ca3af"
-              />
-            </View>
-          )}
+          <View style={styles.skeletonCardLarge} />
         </View>
-
-        <Text style={styles.sectionTitle}>Deposit Adjustment</Text>
-
+      ) : isEmptyState ? (
+        /* ---------------- EMPTY STATE (LIKE PROFILE) ---------------- */
         <View style={styles.card}>
-          {/* IBAN NUMBER */}
-          <Text style={styles.inputLabel}>IBAN Number *</Text>
-          <TextInput
-            placeholder="AE07 1234 5678 9012 3456 7890"
-            style={styles.input}
-            placeholderTextColor="#9ca3af"
-          />
-
-          <Text style={styles.warning}>
-            Please fill out the following to adjust security deposit.
-          </Text>
-
-          {/* ACCOUNT HOLDER */}
-          <Text style={styles.inputLabel}>Account Holder Name *</Text>
-          <TextInput
-            placeholder="Mustafa M"
-            style={styles.input}
-            placeholderTextColor="#9ca3af"
-          />
-
-          {/* ACCOUNT NUMBER */}
-          <Text style={styles.inputLabel}>Account Number *</Text>
-          <TextInput
-            placeholder="897456789012"
-            style={styles.input}
-            placeholderTextColor="#9ca3af"
-          />
-
-          <Text style={styles.error}>Invalid Account Number</Text>
-
-          {/* BRANCH */}
-          <Text style={styles.inputLabel}>Branch *</Text>
-          <TextInput
-            placeholder="Downtown Branch"
-            style={styles.input}
-            placeholderTextColor="#9ca3af"
-          />
-
-          {/* BANK NAME */}
-          <Text style={styles.inputLabel}>Bank Name *</Text>
-          <TextInput
-            placeholder="Emirates NBD"
-            style={styles.input}
-            placeholderTextColor="#9ca3af"
-          />
-
-          {/* Upload File */}
-          <Text style={styles.inputLabel}>Upload Tenancy Contract *</Text>
-          <TouchableOpacity style={styles.uploadBtn}>
-            <Text style={styles.uploadText}>Choose File</Text>
-          </TouchableOpacity>
-
-          {/* SWITCH */}
-          <View style={styles.switchRow}>
-            <Switch
-              value={settleFinalBill}
-              onValueChange={setSettleFinalBill}
-              trackColor={{ false: "#767577", true: "#81b0ff" }}
-              thumbColor={settleFinalBill ? "#007bff" : "#f4f3f4"}
+          <View style={styles.emptyBox}>
+            <Image
+              source={require("../../assets/images/delivery-truck.png")}
+              style={{ width: 50, height: 50, marginBottom: 16 }}
             />
-            <Text style={styles.switchText}>
-              Do you want to settle Final Bill with security deposit?
+            <Text style={styles.emptyTitle}>Moveout Not Available</Text>
+            <Text style={styles.emptyText}>
+              We could not find the required profile or contract information to
+              request a moveout.
             </Text>
           </View>
-
-          {/* SAVE BUTTON */}
-          <TouchableOpacity style={styles.saveBtn}>
-            <Text style={styles.saveText}>Save Changes</Text>
-          </TouchableOpacity>
         </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
+      ) : (
+        /* ---------------- DATA FOUND ---------------- */
+        <>
+          {/* Greeting Card */}
+          <GreetingCard
+            name={profile?.FirstName}
+            building={
+              profile?.BuildingName && unit
+                ? `${profile.BuildingName} - ${unit}`
+                : "—"
+            }
+          />
+
+          {/* ================= MOVEOUT DETAILS ================= */}
+          <View style={styles.card}>
+            <View style={styles.row}>
+              <Text style={styles.label}>Community</Text>
+              <Text style={styles.value}>{community}</Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Building Name</Text>
+              <Text style={styles.value}>{building}</Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Unit</Text>
+              <Text style={styles.value}>{unit}</Text>
+            </View>
+
+            <View style={styles.row}>
+              <Text style={styles.label}>Contract Type</Text>
+              <Text style={styles.value}>Individual</Text>
+            </View>
+
+            <View style={styles.contractBox}>
+              <Text style={styles.contractLabel}>Contract Start Date</Text>
+              <Text style={styles.contractDate}>
+                {formatDate(contract?.ContractStartDate)}
+              </Text>
+            </View>
+
+            <View style={styles.contractBox}>
+              <Text style={styles.contractLabel}>Contract End Date</Text>
+              <Text style={styles.contractDate}>
+                {formatDate(contract?.ContractEndDate)}
+              </Text>
+            </View>
+
+            <View style={styles.checkboxRow}>
+              <TouchableOpacity
+                style={styles.checkbox}
+                onPress={() =>
+                  setIsFinalBillChecked(!isFinalBillChecked)
+                }
+              >
+                <View
+                  style={[
+                    styles.checkboxBox,
+                    isFinalBillChecked && styles.checkboxChecked,
+                  ]}
+                >
+                  {isFinalBillChecked && (
+                    <Text style={styles.checkmark}>✓</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+              <Text style={styles.checkboxLabel}>
+                Request for Final Bill
+              </Text>
+            </View>
+
+            {isFinalBillChecked && (
+              <View style={styles.finalBillContent}>
+                <Text style={styles.finalBillTitle}>
+                  Request For Final Bill
+                </Text>
+
+                <Text style={styles.inputLabel}>Remarks</Text>
+                <TextInput
+                  style={styles.remarksInput}
+                  multiline
+                  value={remarks}
+                  onChangeText={setRemarks}
+                  placeholder="Write your comments here..."
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+            )}
+          </View>
+
+          {/* ================= DEPOSIT ADJUSTMENT ================= */}
+          <Text style={styles.sectionTitle}>Deposit Adjustment</Text>
+
+          <View style={styles.card}>
+            <Text style={styles.inputLabel}>IBAN Number *</Text>
+            <TextInput
+              placeholder="AE07 1234 5678 9012 3456 7890"
+              style={styles.input}
+              placeholderTextColor="#9ca3af"
+            />
+
+            <Text style={styles.warning}>
+              Please fill out the following to adjust security deposit.
+            </Text>
+
+            <Text style={styles.inputLabel}>
+              Account Holder Name *
+            </Text>
+            <TextInput
+              placeholder="Mustafa M"
+              style={styles.input}
+              placeholderTextColor="#9ca3af"
+            />
+
+            <Text style={styles.inputLabel}>Account Number *</Text>
+            <TextInput
+              placeholder="897456789012"
+              style={styles.input}
+              placeholderTextColor="#9ca3af"
+            />
+            <Text style={styles.error}>Invalid Account Number</Text>
+
+            <Text style={styles.inputLabel}>Branch *</Text>
+            <TextInput
+              placeholder="Downtown Branch"
+              style={styles.input}
+              placeholderTextColor="#9ca3af"
+            />
+
+            <Text style={styles.inputLabel}>Bank Name *</Text>
+            <TextInput
+              placeholder="Emirates NBD"
+              style={styles.input}
+              placeholderTextColor="#9ca3af"
+            />
+
+            <Text style={styles.inputLabel}>
+              Upload Tenancy Contract *
+            </Text>
+            <TouchableOpacity style={styles.uploadBtn}>
+              <Text style={styles.uploadText}>Choose File</Text>
+            </TouchableOpacity>
+
+            <View style={styles.switchRow}>
+              <Switch
+                value={settleFinalBill}
+                onValueChange={setSettleFinalBill}
+                trackColor={{ false: "#767577", true: "#81b0ff" }}
+                thumbColor={
+                  settleFinalBill ? "#007bff" : "#f4f3f4"
+                }
+              />
+              <Text style={styles.switchText}>
+                Do you want to settle Final Bill with security deposit?
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.saveBtn}>
+              <Text style={styles.saveText}>Save Changes</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
+    </ScrollView>
+  </SafeAreaView>
+);
+
 };
 
 export default RequestMoveout;
@@ -569,4 +620,26 @@ const styles = StyleSheet.create({
     width: "60%",
     alignSelf: "center",
   },
+  /* ---------- Empty State ---------- */
+emptyBox: {
+  marginTop: 100,
+  paddingHorizontal: 24,
+  alignItems: "center",
+},
+
+emptyTitle: {
+  fontSize: 18,
+  fontWeight: "700",
+  color: "#111827",
+  marginBottom: 8,
+  textAlign: "center",
+},
+
+emptyText: {
+  fontSize: 14,
+  color: "#6b7280",
+  textAlign: "center",
+  lineHeight: 20,
+},
+
 });

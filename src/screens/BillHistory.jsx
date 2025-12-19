@@ -9,6 +9,7 @@ import {
   StatusBar,
   Pressable,
   ActivityIndicator,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingCard from "../components/GreetingCard";
@@ -16,14 +17,12 @@ import { useSession } from "../context/SessionContext";
 import { getBillHistory } from "../apiConfig";
 
 /* ---------------- FILTERS ---------------- */
-
 const FILTERS = [
   { key: "all", label: "All", icon: "📊" },
   { key: "last6", label: "6 Months", icon: "🗓️" },
 ];
 
 /* ---------------- HELPERS ---------------- */
-
 function monthsDiff(from, to) {
   return (
     (to.getFullYear() - from.getFullYear()) * 12 +
@@ -34,10 +33,8 @@ function monthsDiff(from, to) {
 const formatApiDate = (d) => d.toISOString().split("T")[0];
 
 /* ---------------- SCREEN ---------------- */
-
 export default function BillHistoryScreen() {
   const { session, isReady } = useSession();
-
   const loginKey = session?.loginKey;
   const clientId = session?.clientId;
 
@@ -47,9 +44,11 @@ export default function BillHistoryScreen() {
   const [error, setError] = useState(null);
 
   /* ---------------- FETCH BILL HISTORY ---------------- */
-
   const fetchBillHistory = useCallback(async () => {
-    if (!loginKey || !clientId) return;
+    if (!loginKey || !clientId) {
+      setLoading(false);
+      return;
+    }
 
     try {
       setLoading(true);
@@ -72,8 +71,9 @@ export default function BillHistoryScreen() {
         throw new Error("Failed to load bill history");
       }
 
+      // Normalize the data
       const normalized = data.map((bill) => ({
-        id: String(bill.BillId || bill.Gen_No),
+        id: String(bill.BillId || bill.Gen_No || Math.random()),
         billDate: bill.BillDate,
         type: bill.TransTypeName || "Bill",
         paymentMethod: "Online Payment",
@@ -82,10 +82,11 @@ export default function BillHistoryScreen() {
         billNo: bill.BillNo,
       }));
 
-      setBillData(normalized);
+      setBillData(normalized); // FIXED: Set normalized data instead of empty array
     } catch (err) {
       console.log("Bill history error:", err.message);
       setError("Unable to load bill history");
+      setBillData([]);
     } finally {
       setLoading(false);
     }
@@ -98,28 +99,128 @@ export default function BillHistoryScreen() {
   }, [isReady, fetchBillHistory]);
 
   /* ---------------- FILTERED DATA ---------------- */
-
   const filteredBills = useMemo(() => {
+    if (!Array.isArray(billData)) return [];
+    
     const today = new Date();
-
     return billData.filter((bill) => {
-      const billDate = new Date(bill.billDate);
-      const diff = monthsDiff(billDate, today);
+      try {
+        const billDate = new Date(bill.billDate);
+        if (isNaN(billDate.getTime())) return false;
+        
+        const diff = monthsDiff(billDate, today);
 
-      if (activeFilter === "last6") {
-        return diff >= 0 && diff < 6;
+        if (activeFilter === "last6") {
+          return diff >= 0 && diff < 6;
+        }
+        return true;
+      } catch {
+        return false;
       }
-      return true;
     });
   }, [billData, activeFilter]);
 
-  /* ---------------- UI ---------------- */
+  /* ---------------- UI STATE LOGIC ---------------- */
+  const hasBills = Array.isArray(billData) && billData.length > 0;
+  const hasFilteredBills = Array.isArray(filteredBills) && filteredBills.length > 0;
+  const isEmptyState = !loading && !error && !hasBills;
+  const isFilterEmpty = !loading && !error && hasBills && !hasFilteredBills;
+
+  /* ---------------- RENDER CONTENT ---------------- */
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Loading bills...</Text>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>⚠️ {error}</Text>
+          <TouchableOpacity
+            style={styles.retryButton}
+            onPress={fetchBillHistory}
+          >
+            <Text style={styles.retryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    if (isEmptyState) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Image
+            source={require("../../assets/images/bill.jpg")}
+            style={styles.emptyImage}
+          />
+          <Text style={styles.emptyTitle}>No Bill History</Text>
+          <Text style={styles.emptyText}>
+            You don't have any billing records yet.
+          </Text>
+        </View>
+      );
+    }
+
+    if (isFilterEmpty) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Image
+            source={require("../../assets/images/bill.jpg")}
+            style={styles.emptyImage}
+          />
+          <Text style={styles.emptyTitle}>No Bills Found</Text>
+          <Text style={styles.emptyText}>
+            There are no bills for the selected filter.
+          </Text>
+        </View>
+      );
+    }
+
+    // Render bill list
+    return filteredBills.map((bill) => (
+      <Pressable key={bill.id} style={styles.billCard}>
+        <View style={styles.billRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {bill.type?.charAt(0) || "B"}
+            </Text>
+          </View>
+
+          <View style={styles.billInfo}>
+            <Text style={styles.billName} numberOfLines={1}>
+              #{bill.billNo} {bill.type}
+            </Text>
+
+            <View style={styles.paymentBadge}>
+              <Text style={styles.paymentBadgeText}>
+                {bill.paymentMethod}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.amountBadge}>
+            <Text style={styles.amountText}>
+              {bill.amount} {bill.currency}
+            </Text>
+          </View>
+        </View>
+      </Pressable>
+    ));
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <GreetingCard />
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {hasBills && <GreetingCard />}
 
         <Text style={styles.headerTitle}>Bill History</Text>
 
@@ -149,104 +250,53 @@ export default function BillHistoryScreen() {
           })}
         </View>
 
-        {/* STATES */}
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2563EB" />
-            <Text style={styles.loadingText}>Loading bills...</Text>
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>⚠️ {error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={fetchBillHistory}
-            >
-              <Text style={styles.retryText}>Retry</Text>
-            </TouchableOpacity>
-          </View>
-        ) : filteredBills.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyText}>📄 No bills found</Text>
-          </View>
-        ) : (
-          filteredBills.map((bill) => (
-            <Pressable key={bill.id} style={styles.billCard}>
-              <View style={styles.billRow}>
-                {/* Left icon */}
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {bill.type.charAt(0)}
-                  </Text>
-                </View>
+        {/* Content */}
+        {renderContent()}
 
-                {/* Middle content */}
-                <View style={styles.billInfo}>
-                  <Text style={styles.billName} numberOfLines={1}>
-                    #{bill.billNo} {bill.type}
-                  </Text>
-
-                  {/* Payment Method – highlighted */}
-                  <View style={styles.paymentBadge}>
-                    <Text style={styles.paymentBadgeText}>
-                      {bill.paymentMethod}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Amount – grey badge */}
-                <View style={styles.amountBadge}>
-                  <Text style={styles.amountText}>
-                    {bill.amount} {bill.currency}
-                  </Text>
-                </View>
-              </View>
-            </Pressable>
-          ))
-        )}
-
-        <View style={{ height: 30 }} />
+        <View style={styles.bottomSpacer} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 /* ---------------- STYLES ---------------- */
-
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#F3F4F6" },
-  scrollContent: { padding: 16 },
-
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#111827",
-    marginBottom: 14,
+  safeArea: { 
+    flex: 1, 
+    backgroundColor: "#F3F4F6" 
   },
+  scrollContent: { 
+    padding: 16,
+    paddingBottom: 30 
+  },
+  bottomSpacer: {
+    height: 30 
+  },
+
+  // Header title - FIXED: Only one definition
   headerTitle: {
-    borderRadius: 8,
-    marginBottom: 16,
-    fontWeight: "700",
-    color: "#030a70",
     fontSize: 16,
-     backgroundColor: "#F5F5DC",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    fontWeight: "900",
+    color: "#030a70",
+    marginBottom: 14,
     borderRadius: 8,
-    marginTop: 4,
-    paddingTop: 10,
-    paddingBottom: 10,
+    backgroundColor: "#F5F5DC",
     paddingHorizontal: 20,
-    marginBottom: 16,
+    paddingVertical: 10,
+    marginTop: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 12,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-     marginBottom: 12,
   },
 
-  filtersRow: { flexDirection: "row", marginBottom: 16 },
+  filtersRow: { 
+    flexDirection: "row", 
+    marginBottom: 16 
+  },
   filterPill: {
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
@@ -256,20 +306,34 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
     marginRight: 8,
   },
-  filterPillActive: { backgroundColor: "#2563EB", borderColor: "#2563EB" },
-  filterText: { fontSize: 13, fontWeight: "700", color: "#374151" },
-  filterTextActive: { color: "#FFFFFF" },
+  filterPillActive: { 
+    backgroundColor: "#2563EB", 
+    borderColor: "#2563EB" 
+  },
+  filterText: { 
+    fontSize: 13, 
+    fontWeight: "700", 
+    color: "#374151" 
+  },
+  filterTextActive: { 
+    color: "#FFFFFF" 
+  },
 
   billCard: {
     borderRadius: 16,
     padding: 16,
     marginBottom: 12,
     backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
     elevation: 3,
   },
-
-  billRow: { flexDirection: "row", alignItems: "center" },
-
+  billRow: { 
+    flexDirection: "row", 
+    alignItems: "center" 
+  },
   avatar: {
     width: 48,
     height: 48,
@@ -279,21 +343,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 12,
   },
-  avatarText: { fontSize: 20, fontWeight: "700" },
-
-  billInfo: { flex: 1 },
-
+  avatarText: { 
+    fontSize: 20, 
+    fontWeight: "700" 
+  },
+  billInfo: { 
+    flex: 1 
+  },
   billName: {
     fontSize: 13,
     fontWeight: "700",
     color: "#111827",
   },
-
-  /* Payment method badge */
   paymentBadge: {
     marginTop: 6,
     alignSelf: "flex-start",
-    backgroundColor: "#DCFCE7", // light green
+    backgroundColor: "#DCFCE7",
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 999,
@@ -303,8 +368,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#166534",
   },
-
-  /* Amount badge */
   amountBadge: {
     backgroundColor: "#F3F4F6",
     paddingHorizontal: 12,
@@ -317,8 +380,14 @@ const styles = StyleSheet.create({
     color: "#111827",
   },
 
-  loadingContainer: { alignItems: "center", paddingVertical: 40 },
-  loadingText: { marginTop: 12, color: "#6B7280" },
+  loadingContainer: { 
+    alignItems: "center", 
+    paddingVertical: 40 
+  },
+  loadingText: { 
+    marginTop: 12, 
+    color: "#6B7280" 
+  },
 
   errorContainer: {
     backgroundColor: "#FEF2F2",
@@ -326,15 +395,42 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
   },
-  errorText: { color: "#DC2626", marginBottom: 12 },
+  errorText: { 
+    color: "#DC2626", 
+    marginBottom: 12 
+  },
   retryButton: {
     backgroundColor: "#DC2626",
     paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
   },
-  retryText: { color: "#FFFFFF", fontWeight: "600" },
+  retryText: { 
+    color: "#FFFFFF", 
+    fontWeight: "600" 
+  },
 
-  emptyContainer: { alignItems: "center", paddingVertical: 40 },
-  emptyText: { color: "#6B7280" },
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyImage: {
+    width: 60,
+    height: 60,
+    marginBottom: 16,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 18,
+  },
 });

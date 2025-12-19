@@ -15,6 +15,8 @@ import DocumentPicker from "@react-native-documents/picker";
 import GreetingCard from "../components/GreetingCard";
 import { API_BASE_URL, getFinalBillRequest } from "../apiConfig";
 import { useSession } from "../context/SessionContext";
+import { Image } from "react-native";
+
 
 const formatApiDate = (raw) => {
   if (!raw && raw !== 0) return "";
@@ -92,8 +94,11 @@ const RenewContract = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [isEmptyState, setIsEmptyState] = useState(false);
+
 
 const fetchContractData = async () => {
+
   setError("");
   setLoading(true);
 
@@ -116,20 +121,21 @@ const fetchContractData = async () => {
       return;
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
-      setError("No active contract found for this office.");
-      setLoading(false);
-      return;
-    }
+   if (!Array.isArray(data) || data.length === 0) {
+          setIsEmptyState(true);     // EMPTY STATE
+          setError("");              // NOT an error
+          setLoading(false);
+          return;
+        }
+
 
     const contract = data[0]; // ✅ backend always returns array
-
-    setOfficeNumberFromApi(contract.OfficeNumber ?? "");
-    setContractId(String(contract.ContractId ?? ""));
-    setStartDate(formatApiDate(contract.ContractStartDate));
-    setEndDate(formatApiDate(contract.ContractEndDate));
-
-    setError("");
+    
+      setIsEmptyState(false);
+      setOfficeNumberFromApi(contract.OfficeNumber ?? "");
+      setContractId(String(contract.ContractId ?? ""));
+      setStartDate(formatApiDate(contract.ContractStartDate));
+      setEndDate(formatApiDate(contract.ContractEndDate));
   } catch (err) {
     console.error("fetchContractData error:", err);
     setError("Unable to fetch contract details");
@@ -270,19 +276,37 @@ useEffect(() => {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <GreetingCard
-      />
+      {!isEmptyState && <GreetingCard />}
+
 
       <View style={styles.headerStrip}>
         <Text style={styles.headerStripText}>Renew Contract</Text>
       </View>
+      
+      {/* ================= EMPTY STATE ================= */}
+{isEmptyState && (
+  <View style={styles.highlightedContainer}>
+    <View style={styles.emptyBox}>
+   <Image
+  source={require("../../assets/images/account.png")}
+  style={{ width: 50, height: 50, marginBottom: 16 }}
+/>
+
+      <Text style={styles.emptyTitle}>No Contract Found</Text>
+      <Text style={styles.emptyText}>
+        We couldn’t find an active contract eligible for renewal for this office.
+      </Text>
+    </View>
+  </View>
+)}
 
       {error ? (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : null}
-
+      {!isEmptyState && (
+       <>
       <View style={styles.highlightedContainer}>
         <View style={styles.detailsCard}>
           <DetailItem label="Office Number" value={officeNumberDisplay || "N/A"} />
@@ -365,6 +389,8 @@ useEffect(() => {
           * Required fields. Please ensure all information is accurate before submitting.
         </Text>
       </View>
+      </>
+      )}
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -615,6 +641,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#E5E7EB",
     marginTop: 8,
   },
+  emptyBox: {
+  paddingVertical: 40,
+  paddingHorizontal: 20,
+  alignItems: "center",
+},
+
+emptyTitle: {
+  fontSize: 16,
+  fontWeight: "700",
+  color: "#111827",
+  marginBottom: 6,
+  textAlign: "center",
+},
+
+emptyText: {
+  fontSize: 13,
+  color: "#6b7280",
+  textAlign: "center",
+  lineHeight: 18,
+},
+
 });
 
 export default RenewContract;

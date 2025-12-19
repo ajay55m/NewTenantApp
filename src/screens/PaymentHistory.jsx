@@ -1,6 +1,6 @@
 // src/PaymentHistory.jsx
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ScrollView ,Image} from "react-native";
 import GreetingCard from "../components/GreetingCard";
 import { useSession } from "../context/SessionContext";
 import { getApprovedClient, getPaymentHistory } from "../apiConfig";
@@ -100,6 +100,11 @@ const PaymentHistory = () => {
   }
 
   /* ---------------- UI ---------------- */
+const hasPayments =
+  Array.isArray(payments) && payments.length > 0;
+
+const isEmptyState =
+  !loading && !error && !hasPayments;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -111,43 +116,61 @@ const PaymentHistory = () => {
         <Text style={styles.headerStripText}>Payment History</Text>
       </View>
 
-      {payments.length === 0 ? (
-        <Text style={styles.errorText}>No payment records found.</Text>
-      ) : (
-        payments.map((pay) => (
-          <View key={pay.PaymentId} style={styles.paymentCard}>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Payment No.</Text>
-              <Text style={styles.paymentValue}>{pay.PaymentNo}</Text>
-            </View>
+      {/* ================= EMPTY STATE ================= */}
+{isEmptyState ? (
+  <View style={styles.emptyContainer}>
+    <Image
+      source={require("../../assets/images/agreement.png")}
+      style={{
+        width: 80,
+        height: 80,
+        marginBottom: 16,
+        resizeMode: "contain",
+      }}
+    />
 
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Received Amount</Text>
-              <View style={styles.amountBadge}>
-                <Text style={styles.amountBadgeText}>
-                  {pay.TotalReceivedAmount} AED
-                </Text>
-              </View>
-            </View>
+    <Text style={styles.emptyTitle}>No Payments Found</Text>
+    <Text style={styles.emptyText}>
+      You haven’t made any payments yet.
+    </Text>
+  </View>
+) : (
+  /* ================= NORMAL LIST ================= */
+  payments.map((pay) => (
+    <View key={pay.PaymentId} style={styles.paymentCard}>
+      <View style={styles.paymentRow}>
+        <Text style={styles.paymentLabel}>Payment No.</Text>
+        <Text style={styles.paymentValue}>{pay.PaymentNo}</Text>
+      </View>
 
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Mode</Text>
-              <View style={styles.modeBadge}>
-                <Text style={styles.modeBadgeText}>
-                  {pay.PaymentMode || "—"}
-                </Text>
-              </View>
-            </View>
+      <View style={styles.paymentRow}>
+        <Text style={styles.paymentLabel}>Received Amount</Text>
+        <View style={styles.amountBadge}>
+          <Text style={styles.amountBadgeText}>
+            {pay.TotalReceivedAmount} AED
+          </Text>
+        </View>
+      </View>
 
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Bill Type</Text>
-              <Text style={styles.paymentValue}>
-                {pay.TransTypeName || "—"}
-              </Text>
-            </View>
-          </View>
-        ))
-      )}
+      <View style={styles.paymentRow}>
+        <Text style={styles.paymentLabel}>Mode</Text>
+        <View style={styles.modeBadge}>
+          <Text style={styles.modeBadgeText}>
+            {pay.PaymentMode || "—"}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.paymentRow}>
+        <Text style={styles.paymentLabel}>Bill Type</Text>
+        <Text style={styles.paymentValue}>
+          {pay.TransTypeName || "—"}
+        </Text>
+      </View>
+    </View>
+  ))
+)}
+
 
       <View style={{ height: 40 }} />
     </ScrollView>
@@ -274,6 +297,30 @@ const styles = StyleSheet.create({
     color: "#b91c1c",
     marginBottom: 8,
   },
+emptyContainer: {
+  alignItems: "center",
+  paddingVertical: 40,
+  paddingHorizontal: 20,
+  backgroundColor: "#ffffffff",
+  borderRadius: 12,
+},
+
+emptyTitle: {
+  fontSize: 16,
+  fontWeight: "700",
+  color: "#111827", // dark gray
+  marginBottom: 6,
+  textAlign: "center",
+},
+
+emptyText: {
+  fontSize: 13,
+  color: "#6B7280", // medium gray
+  textAlign: "center",
+  lineHeight: 18,
+},
+
+
 });
 
 export default PaymentHistory;
