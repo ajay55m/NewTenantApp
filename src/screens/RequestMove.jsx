@@ -8,14 +8,18 @@ import {
   TouchableOpacity,
   Switch,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingCard from "../components/GreetingCard";
 import { useSession } from "../context/SessionContext";
+import { getApprovedClient, getFinalBillRequest } from "../apiConfig";
+
 import {
-  getApprovedClient,
-  getFinalBillRequest,
-} from "../apiConfig";
+  saveMoveoutDraft,
+  loadMoveoutDraft,
+  clearMoveoutDraft,
+} from "../storage/appStorage";
 
 const RequestMoveout = () => {
   const { session, isReady } = useSession();
@@ -23,18 +27,25 @@ const RequestMoveout = () => {
   const userId = session?.clientId;
   const officeId = session?.officeId;
 
+  /* ================= FORM STATES ================= */
   const [settleFinalBill, setSettleFinalBill] = useState(false);
   const [isFinalBillChecked, setIsFinalBillChecked] = useState(false);
   const [remarks, setRemarks] = useState("");
 
-  // 🔹 Backend data
+  const [iban, setIban] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [branch, setBranch] = useState("");
+  const [bankName, setBankName] = useState("");
+
+  /* ================= BACKEND DATA ================= */
   const [profile, setProfile] = useState(null);
   const [contract, setContract] = useState(null);
 
-  // 🔹 2s full-screen skeleton
+  /* ================= UI STATE ================= */
   const [showSkeleton, setShowSkeleton] = useState(true);
 
-  /* ------------------ FORMAT DATE ------------------ */
+  /* ================= FORMAT DATE ================= */
   const formatDate = (raw) => {
     if (!raw) return "-";
     const d = new Date(raw);
@@ -46,30 +57,28 @@ const RequestMoveout = () => {
     });
   };
 
-  /* ------------------ FETCH PROFILE ------------------ */
+  /* ================= API ================= */
   const fetchProfile = async () => {
     const { ok, data } = await getApprovedClient(userId);
     if (!ok) throw new Error("Profile API failed");
     setProfile(data);
-
   };
 
-  /* ------------------ FETCH CONTRACT ------------------ */
   const fetchContract = async () => {
     const { ok, data } = await getFinalBillRequest(userId, officeId);
     if (!ok) throw new Error("Contract API failed");
-
     if (Array.isArray(data) && data.length > 0) {
       setContract(data[0]);
     }
   };
 
-  /* ------------------ LOAD DATA ------------------ */
+  /* ================= SKELETON ================= */
   useEffect(() => {
     const timer = setTimeout(() => setShowSkeleton(false), 2000);
     return () => clearTimeout(timer);
   }, []);
 
+  /* ================= LOAD API ================= */
   useEffect(() => {
     if (!isReady || !userId || !officeId) return;
 
@@ -84,11 +93,74 @@ const RequestMoveout = () => {
     load();
   }, [isReady, userId, officeId]);
 
-  // ---------- SKELETON UI ----------
+  /* ================= LOAD DRAFT ================= */
+  useEffect(() => {
+    const loadDraft = async () => {
+      const draft = await loadMoveoutDraft();
+      if (draft) {
+        setRemarks(draft.remarks || "");
+        setIban(draft.iban || "");
+        setAccountName(draft.accountName || "");
+        setAccountNumber(draft.accountNumber || "");
+        setBranch(draft.branch || "");
+        setBankName(draft.bankName || "");
+        setSettleFinalBill(draft.settleFinalBill || false);
+        setIsFinalBillChecked(draft.isFinalBillChecked || false);
+      }
+    };
+
+    loadDraft();
+  }, []);
+
+  /* ================= AUTO SAVE ================= */
+  useEffect(() => {
+    const draftData = {
+      remarks,
+      iban,
+      accountName,
+      accountNumber,
+      branch,
+      bankName,
+      settleFinalBill,
+      isFinalBillChecked,
+    };
+
+    saveMoveoutDraft(draftData);
+  }, [
+    remarks,
+    iban,
+    accountName,
+    accountNumber,
+    branch,
+    bankName,
+    settleFinalBill,
+    isFinalBillChecked,
+  ]);
+
+  /* ================= DERIVED ================= */
+  const community = profile?.AreaName || "—";
+  const building = profile?.BuildingName || "—";
+  const unit =
+    profile?.UnitName ||
+    contract?.OfficeNumber ||
+    session?.officeNumber ||
+    "—";
+
+  const isEmptyState =
+    !profile || Object.keys(profile).length === 0 || !contract;
+
+  /* ================= SAVE HANDLER ================= */
+  const handleSave = async () => {
+    // TODO: API submit here
+
+    await clearMoveoutDraft();
+    Alert.alert("Success", "Moveout request saved successfully!");
+  };
+
+  /* ================= UI ================= */
   if (showSkeleton) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        
         <ScrollView contentContainerStyle={styles.skeletonContainer}>
           <View style={styles.skeletonHeader} />
           <View style={styles.skeletonGreetingCard} />
@@ -101,217 +173,222 @@ const RequestMoveout = () => {
     );
   }
 
-  /* ------------------ DERIVED VALUES ------------------ */
-  const community = profile?.AreaName || "—";
-  const building = profile?.BuildingName || "—";
-  const unit =
-    profile?.UnitName ||
-    contract?.OfficeNumber ||
-    session?.officeNumber ||
-    "—";
-const isEmptyState =
-  !profile ||
-  Object.keys(profile).length === 0 ||
-  !contract;
-
-  // ---------- REAL UI ----------
   return (
-  <SafeAreaView style={styles.safeArea}>
-    <ScrollView
-      contentContainerStyle={styles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* ================= PAGE HEADER (ALWAYS) ================= */}
-      <Text style={styles.sectionTitle}>Request Moveout</Text>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ================= PAGE HEADER (ALWAYS) ================= */}
+        <Text style={styles.sectionTitle}>Request Moveout</Text>
 
-      {/* ================= CONTENT SWITCH ================= */}
-      {showSkeleton ? (
-        /* ---------------- LOADING (SKELETON) ---------------- */
-        <View style={styles.card}>
-          <View style={styles.skeletonCardLarge} />
-        </View>
-      ) : isEmptyState ? (
-        /* ---------------- EMPTY STATE (LIKE PROFILE) ---------------- */
-        <View style={styles.card}>
-          <View style={styles.emptyBox}>
-            <Image
-              source={require("../../assets/images/delivery-truck.png")}
-              style={{ width: 50, height: 50, marginBottom: 16 }}
-            />
-            <Text style={styles.emptyTitle}>Moveout Not Available</Text>
-            <Text style={styles.emptyText}>
-              We could not find the required profile or contract information to
-              request a moveout.
-            </Text>
-          </View>
-        </View>
-      ) : (
-        /* ---------------- DATA FOUND ---------------- */
-        <>
-          {/* Greeting Card */}
-          <GreetingCard
-            name={profile?.FirstName}
-            building={
-              profile?.BuildingName && unit
-                ? `${profile.BuildingName} - ${unit}`
-                : "—"
-            }
-          />
-
-          {/* ================= MOVEOUT DETAILS ================= */}
+        {/* ================= CONTENT SWITCH ================= */}
+        {showSkeleton ? (
+          /* ---------------- LOADING (SKELETON) ---------------- */
           <View style={styles.card}>
-            <View style={styles.row}>
-              <Text style={styles.label}>Community</Text>
-              <Text style={styles.value}>{community}</Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Building Name</Text>
-              <Text style={styles.value}>{building}</Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Unit</Text>
-              <Text style={styles.value}>{unit}</Text>
-            </View>
-
-            <View style={styles.row}>
-              <Text style={styles.label}>Contract Type</Text>
-              <Text style={styles.value}>Individual</Text>
-            </View>
-
-            <View style={styles.contractBox}>
-              <Text style={styles.contractLabel}>Contract Start Date</Text>
-              <Text style={styles.contractDate}>
-                {formatDate(contract?.ContractStartDate)}
-              </Text>
-            </View>
-
-            <View style={styles.contractBox}>
-              <Text style={styles.contractLabel}>Contract End Date</Text>
-              <Text style={styles.contractDate}>
-                {formatDate(contract?.ContractEndDate)}
-              </Text>
-            </View>
-
-            <View style={styles.checkboxRow}>
-              <TouchableOpacity
-                style={styles.checkbox}
-                onPress={() =>
-                  setIsFinalBillChecked(!isFinalBillChecked)
-                }
-              >
-                <View
-                  style={[
-                    styles.checkboxBox,
-                    isFinalBillChecked && styles.checkboxChecked,
-                  ]}
-                >
-                  {isFinalBillChecked && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>
-                Request for Final Bill
-              </Text>
-            </View>
-
-            {isFinalBillChecked && (
-              <View style={styles.finalBillContent}>
-                <Text style={styles.finalBillTitle}>
-                  Request For Final Bill
-                </Text>
-
-                <Text style={styles.inputLabel}>Remarks</Text>
-                <TextInput
-                  style={styles.remarksInput}
-                  multiline
-                  value={remarks}
-                  onChangeText={setRemarks}
-                  placeholder="Write your comments here..."
-                  placeholderTextColor="#9ca3af"
-                />
-              </View>
-            )}
+            <View style={styles.skeletonCardLarge} />
           </View>
-
-          {/* ================= DEPOSIT ADJUSTMENT ================= */}
-          <Text style={styles.sectionTitle}>Deposit Adjustment</Text>
-
+        ) : isEmptyState ? (
+          /* ---------------- EMPTY STATE (LIKE PROFILE) ---------------- */
           <View style={styles.card}>
-            <Text style={styles.inputLabel}>IBAN Number *</Text>
-            <TextInput
-              placeholder="AE07 1234 5678 9012 3456 7890"
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-
-            <Text style={styles.warning}>
-              Please fill out the following to adjust security deposit.
-            </Text>
-
-            <Text style={styles.inputLabel}>
-              Account Holder Name *
-            </Text>
-            <TextInput
-              placeholder="Mustafa M"
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-
-            <Text style={styles.inputLabel}>Account Number *</Text>
-            <TextInput
-              placeholder="897456789012"
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-            <Text style={styles.error}>Invalid Account Number</Text>
-
-            <Text style={styles.inputLabel}>Branch *</Text>
-            <TextInput
-              placeholder="Downtown Branch"
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-
-            <Text style={styles.inputLabel}>Bank Name *</Text>
-            <TextInput
-              placeholder="Emirates NBD"
-              style={styles.input}
-              placeholderTextColor="#9ca3af"
-            />
-
-            <Text style={styles.inputLabel}>
-              Upload Tenancy Contract *
-            </Text>
-            <TouchableOpacity style={styles.uploadBtn}>
-              <Text style={styles.uploadText}>Choose File</Text>
-            </TouchableOpacity>
-
-            <View style={styles.switchRow}>
-              <Switch
-                value={settleFinalBill}
-                onValueChange={setSettleFinalBill}
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={
-                  settleFinalBill ? "#007bff" : "#f4f3f4"
-                }
+            <View style={styles.emptyBox}>
+              <Image
+                source={require("../../assets/images/delivery-truck.png")}
+                style={{ width: 50, height: 50, marginBottom: 16 }}
               />
-              <Text style={styles.switchText}>
-                Do you want to settle Final Bill with security deposit?
+              <Text style={styles.emptyTitle}>Moveout Not Available</Text>
+              <Text style={styles.emptyText}>
+                We could not find the required profile or contract information to
+                request a moveout.
               </Text>
             </View>
-
-            <TouchableOpacity style={styles.saveBtn}>
-              <Text style={styles.saveText}>Save Changes</Text>
-            </TouchableOpacity>
           </View>
-        </>
-      )}
-    </ScrollView>
-  </SafeAreaView>
-);
+        ) : (
+          /* ---------------- DATA FOUND ---------------- */
+          <>
+            {/* Greeting Card */}
+            <GreetingCard
+              name={profile?.FirstName}
+              building={
+                profile?.BuildingName && unit
+                  ? `${profile.BuildingName} - ${unit}`
+                  : "—"
+              }
+            />
+
+            {/* ================= MOVEOUT DETAILS ================= */}
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Community</Text>
+                <Text style={styles.value}>{community}</Text>
+              </View>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Building Name</Text>
+                <Text style={styles.value}>{building}</Text>
+              </View>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Unit</Text>
+                <Text style={styles.value}>{unit}</Text>
+              </View>
+
+              <View style={styles.row}>
+                <Text style={styles.label}>Contract Type</Text>
+                <Text style={styles.value}>Individual</Text>
+              </View>
+
+              <View style={styles.contractBox}>
+                <Text style={styles.contractLabel}>Contract Start Date</Text>
+                <Text style={styles.contractDate}>
+                  {formatDate(contract?.ContractStartDate)}
+                </Text>
+              </View>
+
+              <View style={styles.contractBox}>
+                <Text style={styles.contractLabel}>Contract End Date</Text>
+                <Text style={styles.contractDate}>
+                  {formatDate(contract?.ContractEndDate)}
+                </Text>
+              </View>
+
+              <View style={styles.checkboxRow}>
+                <TouchableOpacity
+                  style={styles.checkbox}
+                  onPress={() =>
+                    setIsFinalBillChecked(!isFinalBillChecked)
+                  }
+                >
+                  <View
+                    style={[
+                      styles.checkboxBox,
+                      isFinalBillChecked && styles.checkboxChecked,
+                    ]}
+                  >
+                    {isFinalBillChecked && (
+                      <Text style={styles.checkmark}>✓</Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+                <Text style={styles.checkboxLabel}>
+                  Request for Final Bill
+                </Text>
+              </View>
+
+              {isFinalBillChecked && (
+                <View style={styles.finalBillContent}>
+                  <Text style={styles.finalBillTitle}>
+                    Request For Final Bill
+                  </Text>
+
+                  <Text style={styles.inputLabel}>Remarks</Text>
+                  <TextInput
+                    style={styles.remarksInput}
+                    multiline
+                    value={remarks}
+                    onChangeText={setRemarks}
+                    placeholder="Write your comments here..."
+                    placeholderTextColor="#9ca3af"
+                  />
+                </View>
+              )}
+            </View>
+
+            {/* ================= DEPOSIT ADJUSTMENT ================= */}
+            <Text style={styles.sectionTitle}>Deposit Adjustment</Text>
+
+            <View style={styles.card}>
+              <Text style={styles.inputLabel}>IBAN Number *</Text>
+              <TextInput
+                placeholder="AE07 1234 5678 9012 3456 7890"
+                style={styles.input}
+                value={iban}
+                onChangeText={setIban}
+                placeholderTextColor="#9ca3af"
+              />
+
+              <Text style={styles.warning}>
+                Please fill out the following to adjust security deposit.
+              </Text>
+
+              <Text style={styles.inputLabel}>
+                Account Holder Name *
+              </Text>
+              <TextInput
+                placeholder="Mustafa M"
+                style={styles.input}
+                value={accountName}
+                onChangeText={setAccountName}
+                placeholderTextColor="#9ca3af"
+              />
+
+              <Text style={styles.inputLabel}>Account Number *</Text>
+              <TextInput
+                placeholder="897456789012"
+                style={styles.input}
+                value={accountNumber}
+                onChangeText={setAccountNumber}
+                placeholderTextColor="#9ca3af"
+              />
+              <Text style={styles.error}>Invalid Account Number</Text>
+
+              <Text style={styles.inputLabel}>Branch *</Text>
+              <TextInput
+                placeholder="Downtown Branch"
+                style={styles.input}
+                value={branch}
+                onChangeText={setBranch}
+                placeholderTextColor="#9ca3af"
+              />
+
+              <Text style={styles.inputLabel}>Bank Name *</Text>
+              <TextInput
+                placeholder="Emirates NBD"
+                style={styles.input}
+                value={bankName}
+                onChangeText={setBankName}
+                placeholderTextColor="#9ca3af"
+              />
+
+              <Text style={styles.inputLabel}>
+                Upload Tenancy Contract *
+              </Text>
+              <TouchableOpacity style={styles.uploadBtn}>
+                <Text style={styles.uploadText}>Choose File</Text>
+              </TouchableOpacity>
+
+              <View style={styles.switchRow}>
+                <Switch
+                  value={settleFinalBill}
+                  onValueChange={setSettleFinalBill}
+                  trackColor={{ false: "#767577", true: "#81b0ff" }}
+                  thumbColor={
+                    settleFinalBill ? "#007bff" : "#f4f3f4"
+                  }
+                />
+                <Text style={styles.switchText}>
+                  Do you want to settle Final Bill with security deposit?
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.saveBtn}
+                onPress={async () => {
+                  // TODO: API submit here
+
+                  await clearMoveoutDraft();
+                  alert("Moveout request saved successfully!");
+                }}
+              >
+                <Text style={styles.saveText}>Save Changes</Text>
+              </TouchableOpacity>
+
+            </View>
+          </>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
 
 };
 
@@ -333,7 +410,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#030a70",
     fontSize: 16,
-     backgroundColor: "#F5F5DC",
+    backgroundColor: "#F5F5DC",
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 8,
@@ -347,10 +424,10 @@ const styles = StyleSheet.create({
     elevation: 12,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-     marginBottom: 12,
+    marginBottom: 12,
   },
-   profileHeader: {
-    
+  profileHeader: {
+
   },
 
   /* Main card */
@@ -621,25 +698,25 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
   /* ---------- Empty State ---------- */
-emptyBox: {
-  marginTop: 100,
-  paddingHorizontal: 24,
-  alignItems: "center",
-},
+  emptyBox: {
+    marginTop: 100,
+    paddingHorizontal: 24,
+    alignItems: "center",
+  },
 
-emptyTitle: {
-  fontSize: 18,
-  fontWeight: "700",
-  color: "#111827",
-  marginBottom: 8,
-  textAlign: "center",
-},
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
+    textAlign: "center",
+  },
 
-emptyText: {
-  fontSize: 14,
-  color: "#6b7280",
-  textAlign: "center",
-  lineHeight: 20,
-},
+  emptyText: {
+    fontSize: 14,
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 20,
+  },
 
 });

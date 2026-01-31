@@ -1,9 +1,82 @@
 // src/PaymentHistory.jsx
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ScrollView ,Image} from "react-native";
+import { View, Text, StyleSheet, ScrollView, Image } from "react-native";
 import GreetingCard from "../components/GreetingCard";
 import { useSession } from "../context/SessionContext";
 import { getApprovedClient, getPaymentHistory } from "../apiConfig";
+
+/* ─── SKELETON BOX COMPONENT ────────────────────────────── */
+const SkeletonBox = ({ style }) => <View style={[styles.skeletonBox, style]} />;
+
+/* ─── UNIFIED SKELETON LOADER COMPONENT ────────────────────────────── */
+const PaymentHistorySkeleton = () => {
+  return (
+    <>
+      {/* Greeting Card Skeleton */}
+      <View style={styles.greetingCardSkeleton}>
+        <View style={styles.greetingCardLeft}>
+          <SkeletonBox
+            style={{
+              width: "60%",
+              height: 20,
+              borderRadius: 6,
+              marginBottom: 8,
+            }}
+          />
+          <SkeletonBox
+            style={{
+              width: "80%",
+              height: 16,
+              borderRadius: 6,
+            }}
+          />
+        </View>
+        <SkeletonBox
+          style={{
+            width: 50,
+            height: 50,
+            borderRadius: 25,
+          }}
+        />
+      </View>
+
+      {/* Header Strip Skeleton */}
+      <View style={styles.headerStrip}>
+        <SkeletonBox
+          style={{
+            width: "50%",
+            height: 20,
+            borderRadius: 6,
+          }}
+        />
+      </View>
+
+      {/* Payment Cards Skeleton */}
+      {Array.from({ length: 3 }).map((_, cardIndex) => (
+        <View key={cardIndex} style={[styles.paymentCard, styles.skeletonCard]}>
+          {Array.from({ length: 4 }).map((_, rowIndex) => (
+            <View key={rowIndex} style={styles.paymentRow}>
+              <SkeletonBox
+                style={{
+                  width: "35%",
+                  height: 14,
+                  borderRadius: 6,
+                }}
+              />
+              <SkeletonBox
+                style={{
+                  width: rowIndex === 1 || rowIndex === 2 ? 100 : "40%",
+                  height: rowIndex === 1 || rowIndex === 2 ? 24 : 14,
+                  borderRadius: rowIndex === 1 || rowIndex === 2 ? 10 : 6,
+                }}
+              />
+            </View>
+          ))}
+        </View>
+      ))}
+    </>
+  );
+};
 
 const PaymentHistory = () => {
   const { session, isReady } = useSession();
@@ -80,99 +153,82 @@ const PaymentHistory = () => {
   const buildingLabel =
     buildingName && unitName ? `${buildingName} - ${unitName}` : buildingName;
 
-  /* ---------------- SKELETON ---------------- */
-
-  if (loading) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <GreetingCard loading={true} name=" " building=" " />
-        <View style={[styles.headerStrip, styles.skeleton]} />
-        <View style={[styles.paymentCard, styles.skeletonCard]}>
-          {[1, 2, 3, 4].map((i) => (
-            <View key={i} style={styles.paymentRow}>
-              <View style={[styles.skelLine, { width: "40%" }]} />
-              <View style={[styles.skelLine, { width: "30%" }]} />
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-    );
-  }
-
   /* ---------------- UI ---------------- */
-const hasPayments =
-  Array.isArray(payments) && payments.length > 0;
-
-const isEmptyState =
-  !loading && !error && !hasPayments;
+  const hasPayments = Array.isArray(payments) && payments.length > 0;
+  const isEmptyState = !loading && !error && !hasPayments;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <GreetingCard name={customerName} building={buildingLabel} />
+      {loading ? (
+        <PaymentHistorySkeleton />
+      ) : (
+        <>
+          <GreetingCard name={customerName} building={buildingLabel} />
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+          {error && <Text style={styles.errorText}>{error}</Text>}
 
-      <View style={styles.headerStrip}>
-        <Text style={styles.headerStripText}>Payment History</Text>
-      </View>
+          <View style={styles.headerStrip}>
+            <Text style={styles.headerStripText}>Payment History</Text>
+          </View>
 
-      {/* ================= EMPTY STATE ================= */}
-{isEmptyState ? (
-  <View style={styles.emptyContainer}>
-    <Image
-      source={require("../../assets/images/agreement.png")}
-      style={{
-        width: 80,
-        height: 80,
-        marginBottom: 16,
-        resizeMode: "contain",
-      }}
-    />
+          {/* ================= EMPTY STATE ================= */}
+          {isEmptyState ? (
+            <View style={styles.emptyContainer}>
+              <Image
+                source={require("../../assets/images/agreement.png")}
+                style={{
+                  width: 80,
+                  height: 80,
+                  marginBottom: 16,
+                  resizeMode: "contain",
+                }}
+              />
 
-    <Text style={styles.emptyTitle}>No Payments Found</Text>
-    <Text style={styles.emptyText}>
-      You haven’t made any payments yet.
-    </Text>
-  </View>
-) : (
-  /* ================= NORMAL LIST ================= */
-  payments.map((pay) => (
-    <View key={pay.PaymentId} style={styles.paymentCard}>
-      <View style={styles.paymentRow}>
-        <Text style={styles.paymentLabel}>Payment No.</Text>
-        <Text style={styles.paymentValue}>{pay.PaymentNo}</Text>
-      </View>
+              <Text style={styles.emptyTitle}>No Payments Found</Text>
+              <Text style={styles.emptyText}>
+                You haven't made any payments yet.
+              </Text>
+            </View>
+          ) : (
+            /* ================= NORMAL LIST ================= */
+            payments.map((pay) => (
+              <View key={pay.PaymentId} style={styles.paymentCard}>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Payment No.</Text>
+                  <Text style={styles.paymentValue}>{pay.PaymentNo}</Text>
+                </View>
 
-      <View style={styles.paymentRow}>
-        <Text style={styles.paymentLabel}>Received Amount</Text>
-        <View style={styles.amountBadge}>
-          <Text style={styles.amountBadgeText}>
-            {pay.TotalReceivedAmount} AED
-          </Text>
-        </View>
-      </View>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Received Amount</Text>
+                  <View style={styles.amountBadge}>
+                    <Text style={styles.amountBadgeText}>
+                      {pay.TotalReceivedAmount} AED
+                    </Text>
+                  </View>
+                </View>
 
-      <View style={styles.paymentRow}>
-        <Text style={styles.paymentLabel}>Mode</Text>
-        <View style={styles.modeBadge}>
-          <Text style={styles.modeBadgeText}>
-            {pay.PaymentMode || "—"}
-          </Text>
-        </View>
-      </View>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Mode</Text>
+                  <View style={styles.modeBadge}>
+                    <Text style={styles.modeBadgeText}>
+                      {pay.PaymentMode || "—"}
+                    </Text>
+                  </View>
+                </View>
 
-      <View style={styles.paymentRow}>
-        <Text style={styles.paymentLabel}>Bill Type</Text>
-        <Text style={styles.paymentValue}>
-          {pay.TransTypeName || "—"}
-        </Text>
-      </View>
-    </View>
-  ))
-)}
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Bill Type</Text>
+                  <Text style={styles.paymentValue}>
+                    {pay.TransTypeName || "—"}
+                  </Text>
+                </View>
+              </View>
+            ))
+          )}
 
-
-      <View style={{ height: 40 }} />
+          <View style={{ height: 40 }} />
+        </>
+      )}
     </ScrollView>
   );
 };
@@ -190,25 +246,38 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
 
+  /* Greeting Card Skeleton Styles */
+  greetingCardSkeleton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#f3f4f6",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  greetingCardLeft: {
+    flex: 1,
+  },
+
   /* Header strip */
   headerStrip: {
-     backgroundColor: "#F5F5DC",
-    paddingHorizontal: 12,
+    backgroundColor: "#F5F5DC",
+    paddingHorizontal: 20,
     paddingVertical: 10,
     borderRadius: 8,
     marginTop: 4,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    marginBottom: 12,
     shadowOpacity: 0.25,
     shadowRadius: 12,
     elevation: 12,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-     marginBottom: 12,
-    borderRadius: 6,
-
   },
   headerStripText: {
     fontSize: 16,
@@ -279,17 +348,12 @@ const styles = StyleSheet.create({
   },
 
   /* Skeleton styles */
-  skeleton: {
-    backgroundColor: "#e3e3e3",
+  skeletonBox: {
+    backgroundColor: "#E5E7EB",
   },
   skeletonCard: {
-    backgroundColor: "#f3f3f3",
-    borderRadius: 8,
-  },
-  skelLine: {
-    height: 12,
-    backgroundColor: "#e3e3e3",
-    borderRadius: 6,
+    backgroundColor: "#f3f4f6",
+    borderColor: "#E5E7EB",
   },
 
   errorText: {
@@ -297,30 +361,28 @@ const styles = StyleSheet.create({
     color: "#b91c1c",
     marginBottom: 8,
   },
-emptyContainer: {
-  alignItems: "center",
-  paddingVertical: 40,
-  paddingHorizontal: 20,
-  backgroundColor: "#ffffffff",
-  borderRadius: 12,
-},
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    backgroundColor: "#ffffffff",
+    borderRadius: 12,
+  },
 
-emptyTitle: {
-  fontSize: 16,
-  fontWeight: "700",
-  color: "#111827", // dark gray
-  marginBottom: 6,
-  textAlign: "center",
-},
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+    textAlign: "center",
+  },
 
-emptyText: {
-  fontSize: 13,
-  color: "#6B7280", // medium gray
-  textAlign: "center",
-  lineHeight: 18,
-},
-
-
+  emptyText: {
+    fontSize: 13,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 18,
+  },
 });
 
 export default PaymentHistory;

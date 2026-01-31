@@ -1,4 +1,3 @@
-// Header.jsx
 import React, { useState } from 'react';
 import {
   View,
@@ -15,7 +14,6 @@ export default function Header({
   onNavigate,
   showMenu = true,
   unreadCount = 0,
-  onToggleNotifications,
   onLogout,
   tenantName = 'Tenant',
   tenantAvatar,
@@ -29,16 +27,18 @@ export default function Header({
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <View style={styles.headerContainer}>
+      <View style={styles.headerWrapper}>
+
         {/* ───────── TOP BAR ───────── */}
         <View style={styles.topBar}>
           {showMenu ? (
             <SidebarMenu onSelect={onPress} onNavigate={onNavigate} />
           ) : (
-            <View style={{ width: 40 }} />
+            <View style={styles.menuSpacer} />
           )}
 
-          <View style={styles.logoBox}>
+          {/* LOGO */}
+          <View style={styles.logoContainer}>
             <Image
               source={require('../../assets/images/sglobal-icon.jpg')}
               style={styles.logoImage}
@@ -47,10 +47,10 @@ export default function Header({
 
           {/* RIGHT ACTIONS */}
           <View style={styles.rightActions}>
-            {/* 🔔 Notifications */}
+            {/* 🔔 NOTIFICATIONS → NAVIGATE */}
             <TouchableOpacity
               style={styles.iconButton}
-              onPress={onToggleNotifications}
+              onPress={() => onNavigate?.('Notifications')}
             >
               {unreadCount > 0 && (
                 <View style={styles.notificationBadge}>
@@ -63,7 +63,7 @@ export default function Header({
               />
             </TouchableOpacity>
 
-            {/* 👤 Avatar */}
+            {/* AVATAR */}
             <TouchableOpacity
               style={styles.avatarButton}
               onPress={() => setShowProfileMenu(true)}
@@ -80,17 +80,15 @@ export default function Header({
           </View>
         </View>
 
-        {/* ───────── OVERLAY + DROPDOWN ───────── */}
+        {/* ───────── PROFILE DROPDOWN ───────── */}
         {showProfileMenu && (
           <>
-            {/* Background overlay */}
             <TouchableOpacity
               style={styles.overlay}
               activeOpacity={1}
               onPress={() => setShowProfileMenu(false)}
             />
 
-            {/* Profile dropdown */}
             <View style={styles.profileMenu}>
               <Image
                 source={
@@ -109,10 +107,10 @@ export default function Header({
                 style={styles.logoutButton}
                 onPress={handleLogout}
               >
-                  <Image
-    source={require('../../assets/images/logout.png')}
-    style={styles.logoutIcon}
-  />
+                <Image
+                  source={require('../../assets/images/logout.png')}
+                  style={styles.logoutIcon}
+                />
                 <Text style={styles.logoutText}>Logout</Text>
               </TouchableOpacity>
             </View>
@@ -123,158 +121,88 @@ export default function Header({
   );
 }
 
-/* ───────────────── STYLES ───────────────── */
-
 const styles = StyleSheet.create({
-  safeArea: {
+  safeArea: { backgroundColor: '#FFFFFF' },
+  headerWrapper: {
     backgroundColor: '#FFFFFF',
-    zIndex: 50,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
-
-  headerContainer: {
-    position: 'relative',
-    zIndex: 50,
-  },
-
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    minHeight: 64,
-    borderBottomColor: '#F3F4F6',
-    borderBottomWidth: 1,
+    minHeight: 60,
   },
-
-  logoBox: {
-    alignItems: 'center',
-  },
-
-  logoImage: {
-    width: 48,
-    height: 48,
-    resizeMode: 'contain',
-  },
-
-  rightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-
+  menuSpacer: { width: 40 },
+  logoContainer: { flex: 1, alignItems: 'center' },
+  logoImage: { width: 48, height: 48, resizeMode: 'contain' },
+  rightActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   iconButton: {
-    padding: 8,
-    width: 48,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
   },
-
-  topIconImage: {
-    width: 26,
-    height: 26,
-    resizeMode: 'contain',
-    tintColor: '#374151',
-  },
-
+  topIconImage: { width: 26, height: 26, tintColor: '#1F2937' },
   notificationBadge: {
     position: 'absolute',
-    top: 6,
-    right: 6,
+    top: 4,
+    right: 4,
     backgroundColor: '#EF4444',
     borderRadius: 10,
-    minWidth: 16,
-    height: 16,
-    paddingHorizontal: 3,
+    minWidth: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: '#FFF',
+    zIndex: 1,
   },
-
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-
+  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
   avatarButton: {
-    padding: 4,
-    marginLeft: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#3B82F6',
   },
-
-  avatarImage: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-  },
-
-  /* ───────── OVERLAY ───────── */
-  overlay: {
+  avatarImage: { width: '100%', height: '100%' },
+  overlay: { ...StyleSheet.absoluteFillObject, zIndex: 99 },
+  profileMenu: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: -1000,
-    backgroundColor: 'transparent',
-    zIndex: 98,
+    top: 64,
+    right: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 14,
+    alignItems: 'center',
+    elevation: 8,
+    zIndex: 100,
   },
- profileMenu: {
-  position: 'absolute',
-  top: 68,
-  right: 10,
-  backgroundColor: '#FFFFFF',
-  borderRadius: 12,
-  paddingVertical: 8,
-  paddingHorizontal: 10,
-  minWidth:100,
-  alignItems: 'center',
-  alignSelf: 'flex-start',   // ✅ KEY LINE
-  elevation: 8,
-  shadowColor: '#000',
-  shadowOpacity: 0.12,
-  shadowRadius: 8,
-  shadowOffset: { width: 0, height: 4 },
-  zIndex: 99,
-},
- profileAvatar: {
-  width: 28,
-  height: 28,
-  borderRadius: 14,
-  marginBottom: 6,
-},
-
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#3B82F6',
+  },
   profileName: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600',
     color: '#111827',
   },
-
   divider: {
-  height: 1,
-  backgroundColor: '#E5E7EB',
-  marginVertical: 8,
-},
-
-  logoutButton: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  justifyContent: 'center',
-  paddingVertical: 6,
-},
-
- logoutIcon: {
-  width: 16,
-  height: 16,
-  marginRight: 6,
-},
-
-logoutText: {
-  color: '#EF4444',
-  fontSize: 12,
-  fontWeight: '600',
-},
-
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    width: '100%',
+    marginVertical: 10,
+  },
+  logoutButton: { flexDirection: 'row', alignItems: 'center' },
+  logoutIcon: { width: 16, height: 16, marginRight: 6 },
+  logoutText: { color: '#EF4444', fontSize: 12, fontWeight: '600' },
 });

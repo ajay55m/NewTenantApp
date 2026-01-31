@@ -38,28 +38,32 @@ export const SessionProvider = ({ children }) => {
       return;
     }
     const formattedSession = {
-      // User info
-      name: data.FirstName,
-      email: data.EMail,
-      mobile: data.MobileNumber,
+  // User info
+  name: data.FirstName,
+  email: data.EMail,
+  mobile: data.MobileNumber,
 
-      // ✅ IDs (CRITICAL)
-      clientId: Number(data.ClientId), 
-      userId: Number(data.ClientId),   
-      officeId: Number(data.unit),    
+  // IDs
+  clientId: Number(data.ClientId),
+  userId: Number(data.ClientId),
+  officeId: Number(data.unit),
 
-      // Display values
-      officeNumber: data.OfficeNumber, // 3402
-      buildingName: data.buildingName,
+  // Display
+  officeNumber: data.OfficeNumber,
+  buildingName: data.buildingName,
 
-      // Auth
-      loginKey: data.loginKey,
+  // Auth
+  loginKey: data.loginKey,
 
-      // Meta
-      clientTypeId: data.ClientTypeid,
-      userTypeId: data.UserTypeId,
-      status: data.status,
-    };
+  // Meta
+  clientTypeId: data.ClientTypeid,
+  userTypeId: data.UserTypeId,
+  status: Number(data.status),
+
+  // ✅ ADD THESE (CRITICAL)
+  SubmissionStatus: data.SubmissionStatus,
+  Reason: data.Reason,
+};
 
     console.log("✅ SESSION SAVED (BACKEND ONLY):", formattedSession);
 

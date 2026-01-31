@@ -36,9 +36,10 @@ const styles = StyleSheet.create({
     // subtle touchable feedback background on Android/iOS disabled for styling control
   },
   label: {
-    color: COLORS.TEXT_LIGHT,
+    color: "rgba(255, 255, 255, 0.9)",
     fontSize: 13,
     flex: 0.42,
+    fontWeight: "600",
   },
   right: {
     flex: 0.58,
@@ -47,16 +48,17 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
   value: {
-    color: COLORS.TEXT_WHITE,
+    color: "#FFFFFF",
     fontSize: 15,
     textAlign: "right",
+    fontWeight: "500",
   },
   placeholder: {
-    color: COLORS.TEXT_MUTED,
+    color: "rgba(255, 255, 255, 0.4)",
     fontStyle: "italic",
   },
   chev: {
-    color: COLORS.TEXT_MUTED,
+    color: "rgba(255, 255, 255, 0.6)",
     marginLeft: 8,
     fontSize: 18,
   },

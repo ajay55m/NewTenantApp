@@ -1,12 +1,10 @@
 import React from "react";
-import { 
-  View, 
-  Text, 
-  TouchableOpacity, 
-  TextInput, 
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   TouchableWithoutFeedback,
   Keyboard
 } from "react-native";
@@ -27,119 +25,109 @@ const SignupStep1 = ({
   refreshCaptcha,
 }) => {
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-    >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <View style={styles.content}>
-          <Text style={styles.signupLabelText}>Select User Type:</Text>
-          <TouchableOpacity
-            style={styles.signupSelectField}
-            onPress={() => onOpenPicker("userType")}
-          >
-            <Text
-              style={
-                signupForm.userType ? styles.selectFieldText : styles.selectFieldPlaceholder
-              }
-            >
-              {signupForm.userType || "-- Select User Type --"}
-            </Text>
-            <Text style={styles.selectArrow}>▼</Text>
-          </TouchableOpacity>
+    // <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+    <View style={styles.container}>
+      <Text style={styles.signupLabelText}>Select User Type:</Text>
+      <TouchableOpacity
+        style={styles.signupSelectField}
+        onPress={() => onOpenPicker("userType")}
+      >
+        <Text
+          style={
+            signupForm.userType ? styles.selectFieldText : styles.selectFieldPlaceholder
+          }
+        >
+          {signupForm.userType || "-- Select User Type --"}
+        </Text>
+        <Text style={styles.selectArrow}>▼</Text>
+      </TouchableOpacity>
 
-          <Text style={styles.signupLabelText}>Select Area:</Text>
-          <TouchableOpacity
-            style={styles.signupSelectField}
-            onPress={() => onOpenPicker("area")}
-          >
-            <Text
-              style={signupForm.area ? styles.selectFieldText : styles.selectFieldPlaceholder}
-            >
-              {signupForm.area || "-- Select Area --"}
-            </Text>
-            <Text style={styles.selectArrow}>▼</Text>
-          </TouchableOpacity>
+      <Text style={styles.signupLabelText}>Select Area:</Text>
+      <TouchableOpacity
+        style={styles.signupSelectField}
+        onPress={() => onOpenPicker("area")}
+      >
+        <Text
+          style={signupForm.area ? styles.selectFieldText : styles.selectFieldPlaceholder}
+        >
+          {signupForm.area || "-- Select Area --"}
+        </Text>
+        <Text style={styles.selectArrow}>▼</Text>
+      </TouchableOpacity>
 
-          <Text style={styles.signupLabelText}>Select Buildings:</Text>
-          <TouchableOpacity
-            style={styles.signupSelectField}
-            onPress={() => onOpenPicker("building")}
-          >
-            <Text
-              style={
-                signupForm.building ? styles.selectFieldText : styles.selectFieldPlaceholder
-              }
-            >
-              {signupForm.building || "-- Select Building --"}
-            </Text>
-            <Text style={styles.selectArrow}>▼</Text>
-          </TouchableOpacity>
+      <Text style={styles.signupLabelText}>Select Buildings:</Text>
+      <TouchableOpacity
+        style={styles.signupSelectField}
+        onPress={() => onOpenPicker("building")}
+      >
+        <Text
+          style={
+            signupForm.building ? styles.selectFieldText : styles.selectFieldPlaceholder
+          }
+        >
+          {signupForm.building || "-- Select Building --"}
+        </Text>
+        <Text style={styles.selectArrow}>▼</Text>
+      </TouchableOpacity>
 
-          <View style={styles.separator} />
+      <View style={styles.separator} />
 
-          <Text style={styles.signupLabelText}>Enter the CAPTCHA below:</Text>
+      <Text style={styles.signupLabelText}>Enter the CAPTCHA below:</Text>
 
-          <Captcha
-            key={captchaKey}
-            seed={captchaKey}
-            width={290}
-            height={70}
-            length={5}
-            onChange={(actual) => setCaptchaText(actual)}
-          />
+      <Captcha
+        key={captchaKey}
+        seed={captchaKey}
+        width={290}
+        height={70}
+        length={5}
+        onChange={(actual) => setCaptchaText(actual)}
+      />
 
-          <TextInput
-            style={styles.signupInput}
-            placeholder="Enter CAPTCHA"
-            placeholderTextColor={COLORS.TEXT_MUTED}
-            value={captchaInput}
-            onChangeText={setCaptchaInput}
-            onSubmitEditing={Keyboard.dismiss}
-            returnKeyType="done"
-            blurOnSubmit={true}
-          />
+      <TextInput
+        style={styles.signupInput}
+        placeholder="Enter CAPTCHA"
+        placeholderTextColor={COLORS.TEXT_MUTED}
+        value={captchaInput}
+        onChangeText={setCaptchaInput}
+        onSubmitEditing={Keyboard.dismiss}
+        returnKeyType="done"
+        blurOnSubmit={true}
+      />
 
-          <TouchableOpacity style={styles.searchButton} onPress={onNext}>
-            <Text style={styles.searchButtonText}>SEARCH</Text>
-          </TouchableOpacity>
-        </View>
-      </TouchableWithoutFeedback>
-    </KeyboardAvoidingView>
+      <TouchableOpacity style={styles.searchButton} onPress={onNext}>
+        <Text style={styles.searchButtonText}>SEARCH</Text>
+      </TouchableOpacity>
+    </View>
+    // </TouchableWithoutFeedback>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
-  content: {
-    flex: 1,
-    paddingBottom: 20,
+    width: "100%",
   },
   signupLabelText: {
     fontSize: 15,
-    color: COLORS.TEXT_LIGHT,
+    color: "#FFFFFF",
     fontWeight: "700",
     marginTop: 12,
     marginBottom: 6,
   },
   signupInput: {
-    backgroundColor: COLORS.INPUT_BG,
-    borderWidth: 1.5,
-    borderColor: COLORS.BORDER_GREY,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     padding: 14,
     fontSize: 16,
-    color: COLORS.TEXT_DARK,
+    color: "#000000",
     marginBottom: 8,
     marginTop: 10,
   },
   signupSelectField: {
-    backgroundColor: COLORS.INPUT_BG,
-    borderWidth: 1.5,
-    borderColor: COLORS.BORDER_GREY,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     padding: 14,
     flexDirection: "row",
@@ -147,41 +135,41 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-  selectFieldText: { 
+  selectFieldText: {
     fontSize: 16,
     color: COLORS.TEXT_DARK,
     fontWeight: "500",
   },
-  selectFieldPlaceholder: { 
+  selectFieldPlaceholder: {
     fontSize: 16,
     color: COLORS.TEXT_MUTED,
     fontStyle: "italic",
   },
-  selectArrow: { 
+  selectArrow: {
     fontSize: 14,
     color: COLORS.TEXT_MUTED,
     fontWeight: "bold",
   },
-  separator: { 
-    height: 1, 
-    backgroundColor: "rgba(255,255,255,0.2)", 
-    marginVertical: 20 
+  separator: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    marginVertical: 20
   },
-  searchButton: { 
-    backgroundColor: COLORS.TAB_SIGNUP_ACTIVE, // Use signup blue color
+  searchButton: {
+    backgroundColor: COLORS.BRIGHT_BLUE,
     padding: 16,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 15,
-    marginBottom: 10,
-    shadowColor: COLORS.TAB_SIGNUP_ACTIVE,
+    marginBottom: 0,
+    shadowColor: COLORS.BRIGHT_BLUE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 5,
+    elevation: 4,
   },
-  searchButtonText: { 
-    color: "#fff", 
+  searchButtonText: {
+    color: "#fff",
     fontSize: 17,
     fontWeight: "bold",
     letterSpacing: 0.5,

@@ -51,8 +51,8 @@ const DUE_BILLS = [
 function getMonthYearLabel(dateStr) {
   const d = new Date(dateStr);
   const monthNames = [
-    "January","February","March","April","May","June",
-    "July","August","September","October","November","December",
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
   ];
   if (Number.isNaN(d.getTime())) return dateStr;
   return `${monthNames[d.getMonth()]} ${d.getFullYear()}`;

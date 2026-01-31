@@ -1,281 +1,369 @@
-// NotificationsScreen.jsx
-import React, { useEffect, useState } from 'react';
-import { 
-  View, 
-  Text, 
-  SafeAreaView, 
-  FlatList, 
-  StyleSheet, 
-  Image,
-  StatusBar,
+import React, { useState, useEffect, useRef } from "react";
+import {
+  View,
+  Text,
+  SectionList,
+  StyleSheet,
   TouchableOpacity,
-  ScrollView
-} from 'react-native';
+  Image,
+  SafeAreaView,
+  RefreshControl,
+  Alert,
+  Animated,
+} from "react-native";
+import GreetingCard from "../components/GreetingCard";
+import { useSession } from "../context/SessionContext";
+import { getServiceNotifications } from "../apiConfig";
 
-// 🔹 Local skeleton
-const SkeletonBox = ({ style }) => (
-  <View style={[styles.skeletonBox, style]} />
-);
+/* =========================================================
+   NOTIFICATIONS SCREEN
+========================================================= */
+export default function NotificationsScreen({ navigation }) {
+  const { session } = useSession();
 
-const ICON_MAP = {
-  electricity: require('../../assets/NotificationIcon/electrical-engineering.png'),
-  gas: require('../../assets/NotificationIcon/gas.png'),
-  contact: require('../../assets/NotificationIcon/contract.png'),
-  contract: require('../../assets/NotificationIcon/google-contacts.png'),
-  'credit-card': require('../../assets/NotificationIcon/credit-card.png'),
-  expired: require('../../assets/NotificationIcon/expired.png'),
-  water: require('../../assets/NotificationIcon/water.png'),
-};
-
-const sampleNotifications = [
-  { id:'1', title:'Electricity Usage Update', text:'Your electricity usage has increased this month.', time:'2 hours ago', iconKey:'electricity', unread:true, period:'today' },
-  { id:'2', title:'Water Usage Update', text:'Your water consumption is within normal range this month.', time:'4 hours ago', iconKey:'water', unread:true, period:'today' },
-  { id:'3', title:'Gas Supply Status', text:'Scheduled maintenance may affect your gas supply.', time:'2 days ago', iconKey:'gas', unread:true, period:'thisWeek' },
-  { id:'4', title:'Contract Approved', text:'Your residential contract has been approved.', time:'2 days ago', iconKey:'contact', unread:false, period:'thisWeek' },
-  { id:'5', title:'New Document Uploaded', text:'A new payment receipt has been uploaded.', time:'3 days ago', iconKey:'contract', unread:false, period:'thisWeek' },
-  { id:'6', title:'Contract Expiring Soon', text:'Your tenancy contract expires in 45 days.', time:'1 week ago', iconKey:'expired', unread:false, period:'older' },
-  { id:'7', title:'Payment Successful', text:'Your recent bill payment was received.', time:'2 weeks ago', iconKey:'credit-card', unread:false, period:'older' },
-];
-
-// Group by date section
-const groupByPeriod = (notifications) => {
-  const grouped = { today: [], thisWeek: [], older: [] };
-  notifications.forEach(n => grouped[n.period].push(n));
-  return grouped;
-};
-
-const buildSectionData = (grouped) => {
-  const sections = [];
-  if (grouped.today.length) {
-    sections.push({ type: 'header', title: 'Today', key: 'today-header' });
-    sections.push(...grouped.today.map(n => ({ ...n, type: 'notification' })));
-  }
-  if (grouped.thisWeek.length) {
-    sections.push({ type: 'header', title: 'This Week', key: 'week-header' });
-    sections.push(...grouped.thisWeek.map(n => ({ ...n, type: 'notification' })));
-  }
-  if (grouped.older.length) {
-    sections.push({ type: 'header', title: 'Older', key: 'older-header' });
-    sections.push(...grouped.older.map(n => ({ ...n, type: 'notification' })));
-  }
-  return sections;
-};
-
-export default function NotificationsScreen() {
-  // 🔹 LOCAL loading state
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+
+  /* ================= ICON MAP ================= */
+  const ICON_MAP = {
+    electricity: require("../../assets/NotificationIcon/electrical-engineering.png"),
+    gas: require("../../assets/NotificationIcon/gas.png"),
+    water: require("../../assets/NotificationIcon/water.png"),
+    payment: require("../../assets/NotificationIcon/credit-card.png"),
+    maintenance: require("../../assets/NotificationIcon/expired.png"),
+    default: require("../../assets/NotificationIcon/expired.png"),
+  };
+
+  /* ================= FETCH NOTIFICATIONS ================= */
+  const fetchNotifications = async (isRefresh = false) => {
+    try {
+      if (!session?.loginKey) return;
+
+      if (!isRefresh) setLoading(true);
+
+      const { ok, data } = await getServiceNotifications(
+        session.loginKey,
+        1
+      );
+
+      if (!ok || !Array.isArray(data)) {
+        throw new Error("Invalid API response");
+      }
+
+      const transformed = data.map((item) => ({
+        id: String(item.EntryNo),
+        title: item.IssueDescription,
+        subtitle: `Service No: ${item.ServiceNo}`,
+        date: new Date(item.EntryDate),
+        formattedDate: formatDate(item.EntryDate),
+        status: item.Status,
+        unread: item.Status === "Pending" || item.Status === "Open",
+        iconKey: getIconKey(item.IssueDescription),
+      }));
+
+      setNotifications(transformed);
+    } catch (error) {
+      Alert.alert("Error", "Unable to load notifications");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 1000);
-    return () => clearTimeout(t);
-  }, []);
+    if (session?.loginKey) fetchNotifications();
+  }, [session]);
 
-  const grouped = groupByPeriod(sampleNotifications);
-  const sections = buildSectionData(grouped);
-  const unreadCount = sampleNotifications.filter(n => n.unread).length;
+  /* ================= HELPERS ================= */
+  const getIconKey = (text = "") => {
+    const t = text.toLowerCase();
+    if (t.includes("electric") || t.includes("power")) return "electricity";
+    if (t.includes("gas")) return "gas";
+    if (t.includes("water")) return "water";
+    if (t.includes("bill") || t.includes("payment")) return "payment";
+    return "maintenance";
+  };
 
-  // 🔹 Skeleton UI
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" />
+  const formatDate = (d) =>
+    new Date(d).toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 
-        {/* Header skeleton */}
-        <View style={styles.header}>
-          <SkeletonBox style={{ width: 140, height: 20, borderRadius: 8 }} />
-          <SkeletonBox style={{ width: 32, height: 24, borderRadius: 12 }} />
-        </View>
+  const getIcon = (key) => ICON_MAP[key] || ICON_MAP.default;
 
-        <ScrollView contentContainerStyle={styles.listContainer}>
-          {/* Section title skeleton */}
-          <SkeletonBox
-            style={{
-              width: 90,
-              height: 18,
-              borderRadius: 8,
-              marginTop: 16,
-              marginBottom: 10,
-            }}
-          />
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchNotifications(true);
+  };
 
-          {/* Notification skeleton cards */}
-          {Array.from({ length: 5 }).map((_, i) => (
-            <View key={i} style={[styles.notificationCard, styles.skeletonCard]}>
-              <View style={styles.iconContainer}>
-                <SkeletonBox style={{ width: 40, height: 40, borderRadius: 20 }} />
-              </View>
+  /* ================= GROUP BY DATE ================= */
+  const getSections = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-              <View style={styles.notificationContent}>
-                <SkeletonBox style={{ width: '70%', height: 14, borderRadius: 6, marginBottom: 6 }} />
-                <SkeletonBox style={{ width: '95%', height: 12, borderRadius: 6, marginBottom: 5 }} />
-                <SkeletonBox style={{ width: '60%', height: 12, borderRadius: 6, marginBottom: 5 }} />
-                <SkeletonBox style={{ width: '30%', height: 10, borderRadius: 5 }} />
-              </View>
-            </View>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
-    );
-  }
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - 7);
 
-  // 🔹 Actual content UI
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+    const sections = {
+      Today: [],
+      "This Week": [],
+      Older: [],
+    };
 
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        {unreadCount ? (
-          <View style={styles.unreadBadge}>
-            <Text style={styles.unreadBadgeText}>{unreadCount}</Text>
-          </View>
-        ) : (
-          <View style={{ width: 24 }} />
-        )}
+    notifications.forEach((item) => {
+      if (item.date >= today) sections.Today.push(item);
+      else if (item.date >= weekStart) sections["This Week"].push(item);
+      else sections.Older.push(item);
+    });
+
+    return Object.keys(sections)
+      .map((title) => ({
+        title,
+        data: sections[title],
+      }))
+      .filter((s) => s.data.length > 0);
+  };
+
+  /* ================= CARD ================= */
+  const renderItem = ({ item }) => (
+    <TouchableOpacity
+      style={styles.card}
+      activeOpacity={0.9}
+      onPress={() =>
+        setNotifications((prev) =>
+          prev.map((n) =>
+            n.id === item.id ? { ...n, unread: false } : n
+          )
+        )
+      }
+    >
+      <View style={styles.iconWrap}>
+        <Image source={getIcon(item.iconKey)} style={styles.icon} />
       </View>
 
-      <FlatList
-        data={sections}
-        keyExtractor={(item) => item.key || item.id}
-        renderItem={({ item }) =>
-          item.type === 'header'
-            ? (
-              <View style={styles.sectionHeader}>
-                <Text style={styles.sectionHeaderText}>{item.title}</Text>
-              </View>
-            )
-            : (
-              <View style={[
-                styles.notificationCard,
-                item.unread && styles.notificationCardUnread
-              ]}>
-                <View style={styles.iconContainer}>
-                  <Image source={ICON_MAP[item.iconKey]} style={styles.iconImage} />
-                </View>
+      <View style={styles.content}>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.subtitle}>{item.subtitle}</Text>
+        <Text style={styles.date}>{item.formattedDate}</Text>
+      </View>
 
-                <View style={styles.notificationContent}>
-                  <Text style={[
-                    styles.notificationTitle,
-                    item.unread && styles.notificationTitleUnread
-                  ]}>
-                    {item.title}
+      <View
+  style={[
+    styles.statusPill,
+    item.status === "Pending" && styles.statusPending,
+    item.status === "Open" && styles.statusOpen,
+  ]}
+>
+  <Text
+    style={[
+      styles.statusText,
+      item.status === "Pending" && styles.statusTextPending,
+      item.status === "Open" && styles.statusTextOpen,
+    ]}
+  >
+    {item.status}
+  </Text>
+</View>
+
+    </TouchableOpacity>
+  );
+
+  const renderSectionHeader = ({ section }) => (
+    <Text style={styles.sectionTitle}>{section.title}</Text>
+  );
+
+  /* ================= SKELETON ================= */
+  const SkeletonCard = () => {
+    const shimmer = useRef(new Animated.Value(0.3)).current;
+
+    useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmer, {
+            toValue: 1,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+          Animated.timing(shimmer, {
+            toValue: 0.3,
+            duration: 700,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    }, []);
+
+    return (
+      <Animated.View style={[styles.card, { opacity: shimmer }]}>
+        <View style={styles.skeletonIcon} />
+        <View style={{ flex: 1 }}>
+          <View style={styles.skeletonLineLarge} />
+          <View style={styles.skeletonLineSmall} />
+        </View>
+      </Animated.View>
+    );
+  };
+
+  /* ================= MAIN ================= */
+  return (
+    <SafeAreaView style={styles.container}>
+      {loading ? (
+        <>
+          <SkeletonCard />
+          <SkeletonCard />
+        </>
+      ) : (
+        <SectionList
+          sections={getSections()}
+          keyExtractor={(i) => i.id}
+          renderItem={renderItem}
+          renderSectionHeader={renderSectionHeader}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={["#0EA5E9"]}
+            />
+          }
+          ListHeaderComponent={
+            <>
+              <View style={styles.greeting}>
+                <GreetingCard />
+              </View>
+
+              {/* ALL NOTIFICATIONS HEADER */}
+              <View style={styles.header}>
+                <Text style={styles.headerTitle}>All Notifications</Text>
+                {!loading && (
+                  <Text style={styles.headerCount}>
+                    {notifications.filter((n) => n.unread).length} unread
                   </Text>
-                  <Text style={styles.notificationText}>{item.text}</Text>
-                  <Text style={styles.notificationTime}>{item.time}</Text>
-                </View>
-
-                {item.unread && <View style={styles.unreadIndicator} />}
+                )}
               </View>
-            )
-        }
-        contentContainerStyle={styles.listContainer}
-        showsVerticalScrollIndicator={false}
-      />
+            </>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
 
+/* =========================================================
+   STYLES
+========================================================= */
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-  },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+
+  greeting: { margin: 16 },
+
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 14,
+    borderRadius: 16,
     backgroundColor: "#F5F5DC",
-    padding: 16,
-    margin: 16,
-    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: 'rgb(3,10,112)',
-  },
-  unreadBadge: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 8,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: 'center',
-  },
-  unreadBadgeText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 12,
-  },
+  headerTitle: { fontSize: 18, fontWeight: "800", color: "#030A70" },
+  headerCount: { fontSize: 13, fontWeight: "700", color: "#6B7280" },
 
-  listContainer: {
-    padding: 16,
-    paddingBottom: 80,
-  },
-
-  sectionHeader: {
-    backgroundColor: '#e4e4e4',
-    padding: 8,
-    borderRadius: 6,
+  sectionTitle: {
+    marginHorizontal: 16,
     marginTop: 16,
     marginBottom: 8,
-  },
-  sectionHeaderText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
+    fontWeight: "800",
+    color: "#374151",
   },
 
-  notificationCard: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
+  card: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
     marginBottom: 12,
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    elevation: 4,
   },
-  notificationCardUnread: {
-    backgroundColor: '#E5F2FF',
-  },
-  iconContainer: {
-    marginRight: 12,
-  },
-  iconImage: {
+
+  iconWrap: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "#EEF2FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
-  notificationContent: {
-    flex: 1,
-  },
-  notificationTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  notificationTitleUnread: {
-    fontWeight: '700',
-    color: '#000',
-  },
-  notificationText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  notificationTime: {
-    fontSize: 12,
-    color: '#9CA3AF',
-  },
-  unreadIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3B82F6',
+  icon: { width: 22, height: 22, resizeMode: "contain" },
+
+  content: { flex: 1 },
+  title: { fontSize: 15, fontWeight: "700", color: "#111827" },
+  subtitle: { fontSize: 13, color: "#6B7280", marginTop: 2 },
+  date: { fontSize: 12, color: "#9CA3AF", marginTop: 4 },
+
+  arrow: {
+    fontSize: 24,
+    color: "#CBD5E1",
     marginLeft: 8,
-    alignSelf: 'center',
   },
 
-  // 🔹 Skeleton styles
-  skeletonBox: {
-    backgroundColor: '#E5E7EB',
+  /* ================= SKELETON ================= */
+  skeletonIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E5E7EB",
+    marginRight: 12,
   },
-  skeletonCard: {
-    backgroundColor: '#F3F4F6',
-    borderLeftColor: '#E5E7EB',
+  skeletonLineLarge: {
+    height: 14,
+    width: "70%",
+    borderRadius: 7,
+    backgroundColor: "#E5E7EB",
+    marginBottom: 6,
   },
+  skeletonLineSmall: {
+    height: 12,
+    width: "50%",
+    borderRadius: 6,
+    backgroundColor: "#E5E7EB",
+  },
+
+  statusPill: {
+  paddingHorizontal: 12,
+  paddingVertical: 6,
+  borderRadius: 14,
+  backgroundColor: "#E5E7EB", // default
+},
+
+statusText: {
+  fontSize: 12,
+  fontWeight: "700",
+  color: "#374151",
+},
+
+/* ---- STATUS COLORS ---- */
+statusPending: {
+  backgroundColor: "#FEE2E2", // light red
+},
+statusTextPending: {
+  color: "#DC2626", // red
+},
+
+statusOpen: {
+  backgroundColor: "#DBEAFE", // light blue
+},
+statusTextOpen: {
+  color: "#2563EB", // blue
+},
+
 });

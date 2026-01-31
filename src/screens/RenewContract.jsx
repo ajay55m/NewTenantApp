@@ -10,81 +10,38 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  Image,
 } from "react-native";
 import DocumentPicker from "@react-native-documents/picker";
 import GreetingCard from "../components/GreetingCard";
 import { API_BASE_URL, getFinalBillRequest } from "../apiConfig";
 import { useSession } from "../context/SessionContext";
-import { Image } from "react-native";
-
-
-const formatApiDate = (raw) => {
-  if (!raw && raw !== 0) return "";
-
-  console.log("formatApiDate input:", raw, "type:", typeof raw);
-
-  try {
-    if (typeof raw === "string" && /^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-      console.log("Already in MM/DD/YYYY format:", raw);
-      return raw;
-    }
-
-    // Handle "DD MMM YYYY" format (e.g., "22 Aug 2025")
-    if (typeof raw === "string" && /^\d{1,2}\s+\w{3}\s+\d{4}$/.test(raw)) {
-      console.log("Detected DD MMM YYYY format:", raw);
-      const date = new Date(raw);
-      if (!isNaN(date.getTime())) {
-        const mm = String(date.getMonth() + 1).padStart(2, "0");
-        const dd = String(date.getDate()).padStart(2, "0");
-        const yyyy = date.getFullYear();
-        const formatted = `${mm}/${dd}/${yyyy}`;
-        console.log("Formatted DD MMM YYYY date:", formatted);
-        return formatted;
-      }
-    }
-
-    let date = new Date(raw);
-
-    if (isNaN(date.getTime())) {
-      const cleaned = String(raw).replace(/-/g, " ").trim();
-      console.log("Trying cleaned version:", cleaned);
-      date = new Date(cleaned);
-      console.log("Cleaned date object:", date, "isValid:", !isNaN(date.getTime()));
-    }
-
-    if (!isNaN(date.getTime())) {
-      const mm = String(date.getMonth() + 1).padStart(2, "0");
-      const dd = String(date.getDate()).padStart(2, "0");
-      const yyyy = date.getFullYear();
-      const formatted = `${mm}/${dd}/${yyyy}`;
-      console.log("Formatted date:", formatted);
-      return formatted;
-    }
-  } catch (e) {
-    console.error("Date parsing error:", e);
-  }
-
-  console.log("Returning raw value:", String(raw));
-  return String(raw);
-};
+import { saveRenewDraft, loadRenewDraft, clearRenewDraft } from "../storage/appStorage";
+import NetInfo from "@react-native-community/netinfo";
 
 const RENEW_ENDPOINT = "/renew-contract";
 
+const formatApiDate = (raw) => {
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (isNaN(date.getTime())) return String(raw);
+
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${mm}/${dd}/${yyyy}`;
+};
+
 const RenewContract = () => {
   const { session, isReady } = useSession();
-  
+
   const userId = session?.clientId;
-  const officeId = session?.unit || session?.officeId ;
-  const [officeNumberFromApi, setOfficeNumberFromApi] = useState("");
-  const officeNumberDisplay = officeNumberFromApi || session?.officeNumber || session?.officeId || "";
+  const officeId = session?.unit || session?.officeId;
   const loginKey = session?.loginKey || "";
 
-  console.log("🔍 Session values:", { userId, officeId, officeNumber: session?.officeNumber, loginKey, isReady });
-
-  // Debug state changes
-  useEffect(() => {
-    console.log("📊 State updated:", { contractId, startDate, endDate, officeNumberDisplay });
-  }, [contractId, startDate, endDate, officeNumberDisplay]);
+  const [officeNumberFromApi, setOfficeNumberFromApi] = useState("");
+  const officeNumberDisplay =
+    officeNumberFromApi || session?.officeNumber || session?.officeId || "";
 
   const [contractId, setContractId] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -96,63 +53,82 @@ const RenewContract = () => {
   const [error, setError] = useState("");
   const [isEmptyState, setIsEmptyState] = useState(false);
 
+  /* ================= RESTORE DRAFT ================= */
+  useEffect(() => {
+    const restoreDraft = async () => {
+      const draft = await loadRenewDraft();
+      if (draft) {
+        setContractId(draft.contractId || "");
+        setStartDate(draft.startDate || "");
+        setEndDate(draft.endDate || "");
+        setSelectedFile(draft.selectedFile || null);
+      }
+    };
+    restoreDraft();
+  }, []);
 
-const fetchContractData = async () => {
+  /* ================= AUTO SAVE DRAFT ================= */
+  useEffect(() => {
+    saveRenewDraft({
+      contractId,
+      startDate,
+      endDate,
+      selectedFile,
+    });
+  }, [contractId, startDate, endDate, selectedFile]);
 
-  setError("");
-  setLoading(true);
+  /* ================= FETCH CONTRACT ================= */
+  const fetchContractData = async () => {
+    setLoading(true);
+    setError("");
 
-  if (!userId || !officeId || !loginKey) {
-    setError("Session data incomplete. Please login again.");
-    setLoading(false);
-    return;
-  }
-
-  try {
-    const { ok, status, data } = await getFinalBillRequest(
-  userId,
-  officeId,
-  { headers: { Authorization: `Bearer ${loginKey}` } }
-    );
-
-    if (!ok) {
-      setError(`Server error (${status})`);
+    if (!userId || !officeId || !loginKey) {
+      setError("Session expired. Please login again.");
       setLoading(false);
       return;
     }
 
-   if (!Array.isArray(data) || data.length === 0) {
-          setIsEmptyState(true);     // EMPTY STATE
-          setError("");              // NOT an error
-          setLoading(false);
-          return;
-        }
+    try {
+      const { ok, status, data } = await getFinalBillRequest(
+        userId,
+        officeId,
+        { headers: { Authorization: `Bearer ${loginKey}` } }
+      );
 
+      if (!ok) {
+        setError(`Server error (${status})`);
+        setLoading(false);
+        return;
+      }
 
-    const contract = data[0]; // ✅ backend always returns array
-    
+      if (!Array.isArray(data) || data.length === 0) {
+        setIsEmptyState(true);
+        setLoading(false);
+        return;
+      }
+
+      const contract = data[0];
+
       setIsEmptyState(false);
       setOfficeNumberFromApi(contract.OfficeNumber ?? "");
       setContractId(String(contract.ContractId ?? ""));
       setStartDate(formatApiDate(contract.ContractStartDate));
       setEndDate(formatApiDate(contract.ContractEndDate));
-  } catch (err) {
-    console.error("fetchContractData error:", err);
-    setError("Unable to fetch contract details");
-  } finally {
-    setLoading(false);
-  }
-};
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Unable to fetch contract details");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    if (isReady && userId && officeId) {
+      fetchContractData();
+    }
+  }, [isReady, userId, officeId]);
 
-
-useEffect(() => {
-  if (isReady && userId && officeId) {
-    fetchContractData();
-  }
-}, [isReady, userId, officeId]);
-
-
+  /* ================= FILE PICKER ================= */
   const pickFile = async () => {
     try {
       const res = await DocumentPicker.pickSingle({
@@ -167,6 +143,7 @@ useEffect(() => {
     }
   };
 
+  /* ================= VALIDATION ================= */
   const validateForm = () => {
     if (!contractId.trim()) {
       Alert.alert("Validation", "Please enter contract ID.");
@@ -197,16 +174,21 @@ useEffect(() => {
     return true;
   };
 
+  /* ================= SUBMIT ================= */
   const submitRenew = async () => {
     if (!validateForm()) return;
 
-    if (!userId || !officeId || !loginKey) {
-      Alert.alert("Session Error", "Please login again.");
+    setSubmitting(true);
+
+    const netState = await NetInfo.fetch();
+    if (!netState.isConnected || !netState.isInternetReachable) {
+      Alert.alert(
+        "Offline Mode",
+        "Internet not available. Your form is saved and you can submit later."
+      );
+      setSubmitting(false);
       return;
     }
-
-    setSubmitting(true);
-    setError("");
 
     try {
       const formData = new FormData();
@@ -217,7 +199,10 @@ useEffect(() => {
       formData.append("ContractEndDate", endDate);
 
       formData.append("file", {
-        uri: selectedFile.uri,
+        uri:
+          Platform.OS === "android"
+            ? selectedFile.fileCopyUri
+            : selectedFile.uri,
         name: selectedFile.name || `contract_${Date.now()}.pdf`,
         type: selectedFile.type || "application/pdf",
       });
@@ -225,7 +210,6 @@ useEffect(() => {
       const response = await fetch(`${API_BASE_URL}${RENEW_ENDPOINT}`, {
         method: "POST",
         headers: {
-          loginKey,
           Authorization: `Bearer ${loginKey}`,
         },
         body: formData,
@@ -237,14 +221,17 @@ useEffect(() => {
         throw new Error(result?.Message || "Submission failed");
       }
 
-      Alert.alert("Success", result?.Message || "Contract renewed successfully", [
-        { text: "OK", onPress: () => fetchContractData() },
-      ]);
+      Alert.alert("Success", result?.Message || "Contract renewed successfully");
 
+      clearRenewDraft();
       setSelectedFile(null);
+      fetchContractData();
     } catch (err) {
-      setError(err.message);
-      Alert.alert("Error", err.message);
+      console.error("Submit error:", err);
+      Alert.alert(
+        "Submission Failed",
+        "Server or network issue. Your form is saved and you can retry later."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -282,23 +269,23 @@ useEffect(() => {
       <View style={styles.headerStrip}>
         <Text style={styles.headerStripText}>Renew Contract</Text>
       </View>
-      
-      {/* ================= EMPTY STATE ================= */}
-{isEmptyState && (
-  <View style={styles.highlightedContainer}>
-    <View style={styles.emptyBox}>
-   <Image
-  source={require("../../assets/images/account.png")}
-  style={{ width: 50, height: 50, marginBottom: 16 }}
-/>
 
-      <Text style={styles.emptyTitle}>No Contract Found</Text>
-      <Text style={styles.emptyText}>
-        We couldn’t find an active contract eligible for renewal for this office.
-      </Text>
-    </View>
-  </View>
-)}
+      {/* ================= EMPTY STATE ================= */}
+      {isEmptyState && (
+        <View style={styles.highlightedContainer}>
+          <View style={styles.emptyBox}>
+            <Image
+              source={require("../../assets/images/account.png")}
+              style={{ width: 50, height: 50, marginBottom: 16 }}
+            />
+
+            <Text style={styles.emptyTitle}>No Contract Found</Text>
+            <Text style={styles.emptyText}>
+              We couldn’t find an active contract eligible for renewal for this office.
+            </Text>
+          </View>
+        </View>
+      )}
 
       {error ? (
         <View style={styles.errorContainer}>
@@ -306,90 +293,90 @@ useEffect(() => {
         </View>
       ) : null}
       {!isEmptyState && (
-       <>
-      <View style={styles.highlightedContainer}>
-        <View style={styles.detailsCard}>
-          <DetailItem label="Office Number" value={officeNumberDisplay || "N/A"} />
-          <DetailItem label="Contract ID" value={contractId || "Not found"} />
-          <DetailItem label="Start Date" value={startDate || "Not found"} />
-          <DetailItem label="End Date" value={endDate || "Not found"} />
-        </View>
+        <>
+          <View style={styles.highlightedContainer}>
+            <View style={styles.detailsCard}>
+              <DetailItem label="Office Number" value={officeNumberDisplay || "N/A"} />
+              <DetailItem label="Contract ID" value={contractId || "Not found"} />
+              <DetailItem label="Start Date" value={startDate || "Not found"} />
+              <DetailItem label="End Date" value={endDate || "Not found"} />
+            </View>
 
-        <View style={styles.inputItem}>
-          <Text style={styles.inputLabel}>Contract ID *</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Enter Contract ID"
-            placeholderTextColor="#9ca3af"
-            value={contractId}
-            onChangeText={setContractId}
-            editable={!submitting}
-          />
-        </View>
+            <View style={styles.inputItem}>
+              <Text style={styles.inputLabel}>Contract ID *</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter Contract ID"
+                placeholderTextColor="#9ca3af"
+                value={contractId}
+                onChangeText={setContractId}
+                editable={!submitting}
+              />
+            </View>
 
-        <View style={styles.inputItem}>
-          <Text style={styles.inputLabel}>Contract Start Date * (MM/DD/YYYY)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="MM/DD/YYYY"
-            placeholderTextColor="#9ca3af"
-            value={startDate}
-            onChangeText={setStartDate}
-            editable={!submitting}
-          />
-        </View>
+            <View style={styles.inputItem}>
+              <Text style={styles.inputLabel}>Contract Start Date * (MM/DD/YYYY)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="MM/DD/YYYY"
+                placeholderTextColor="#9ca3af"
+                value={startDate}
+                onChangeText={setStartDate}
+                editable={!submitting}
+              />
+            </View>
 
-        <View style={styles.inputItem}>
-          <Text style={styles.inputLabel}>Contract End Date * (MM/DD/YYYY)</Text>
-          <TextInput
-            style={styles.textInput}
-            placeholder="MM/DD/YYYY"
-            placeholderTextColor="#9ca3af"
-            value={endDate}
-            onChangeText={setEndDate}
-            editable={!submitting}
-          />
-        </View>
+            <View style={styles.inputItem}>
+              <Text style={styles.inputLabel}>Contract End Date * (MM/DD/YYYY)</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="MM/DD/YYYY"
+                placeholderTextColor="#9ca3af"
+                value={endDate}
+                onChangeText={setEndDate}
+                editable={!submitting}
+              />
+            </View>
 
-        <View style={styles.uploadItem}>
-          <Text style={styles.inputLabel}>Upload Tenancy Contract *</Text>
-          <Text style={styles.uploadHint}>PDF or Image files only</Text>
-          <View style={styles.uploadSection}>
-            <TouchableOpacity
-              style={[styles.uploadButton, submitting && styles.uploadButtonDisabled]}
-              onPress={pickFile}
-              disabled={submitting}
-            >
-              <Text style={styles.uploadButtonText}>
-                {selectedFile ? "Change File" : "Choose File"}
-              </Text>
-            </TouchableOpacity>
-            <Text style={styles.fileText} numberOfLines={2}>
-              {selectedFile ? selectedFile.name : "No file chosen"}
-              {selectedFile?.size ? ` (${Math.round(selectedFile.size / 1024)} KB)` : ""}
+            <View style={styles.uploadItem}>
+              <Text style={styles.inputLabel}>Upload Tenancy Contract *</Text>
+              <Text style={styles.uploadHint}>PDF or Image files only</Text>
+              <View style={styles.uploadSection}>
+                <TouchableOpacity
+                  style={[styles.uploadButton, submitting && styles.uploadButtonDisabled]}
+                  onPress={pickFile}
+                  disabled={submitting}
+                >
+                  <Text style={styles.uploadButtonText}>
+                    {selectedFile ? "Change File" : "Choose File"}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={styles.fileText} numberOfLines={2}>
+                  {selectedFile ? selectedFile.name : "No file chosen"}
+                  {selectedFile?.size ? ` (${Math.round(selectedFile.size / 1024)} KB)` : ""}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.buttonRow}>
+              <TouchableOpacity
+                style={[styles.renewButton, submitting && styles.renewButtonDisabled]}
+                onPress={submitRenew}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={styles.renewButtonText}>Renew Contract</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.noteText}>
+              * Required fields. Please ensure all information is accurate before submitting.
             </Text>
           </View>
-        </View>
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[styles.renewButton, submitting && styles.renewButtonDisabled]}
-            onPress={submitRenew}
-            disabled={submitting}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.renewButtonText}>Renew Contract</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <Text style={styles.noteText}>
-          * Required fields. Please ensure all information is accurate before submitting.
-        </Text>
-      </View>
-      </>
+        </>
       )}
 
       <View style={{ height: 40 }} />
@@ -642,25 +629,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   emptyBox: {
-  paddingVertical: 40,
-  paddingHorizontal: 20,
-  alignItems: "center",
-},
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: "center",
+  },
 
-emptyTitle: {
-  fontSize: 16,
-  fontWeight: "700",
-  color: "#111827",
-  marginBottom: 6,
-  textAlign: "center",
-},
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+    textAlign: "center",
+  },
 
-emptyText: {
-  fontSize: 13,
-  color: "#6b7280",
-  textAlign: "center",
-  lineHeight: 18,
-},
+  emptyText: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+    lineHeight: 18,
+  },
 
 });
 

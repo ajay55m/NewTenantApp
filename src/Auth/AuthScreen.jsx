@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -14,40 +14,33 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  ScrollView
+  ScrollView,
+  Alert
 } from "react-native";
 import { useSession } from "../context/SessionContext";
 import LoginScreen from "./LoginScreen";
 import SignupStep1 from "./SignupStep1";
 import SignupStep2 from "./SignupStep2";
 import SignupStep3 from "./SignupStep3";
+import MoveInForm from "./MoveIn";
 import { COLORS } from "./constants";
+import {
+  registerUser,
+  getAreas,
+  getBuildingsByArea,
+  getUnitsByBuilding,
+  sendEmailOtp,
+  verifyEmailOtp,
+} from "../apiConfig";
 
 const { width, height } = Dimensions.get("window");
 
-const pickerOptions = {
-  userType: [
-    { label: "Owner", value: "Owner" },
-    { label: "Tenant", value: "Tenant" },
-    { label: "Visitor", value: "Visitor" },
-  ],
-  area: [
-    { label: "DUBAI PRODUCTION CITY", value: "DUBAI PRODUCTION CITY" },
-    { label: "Business Bay", value: "Business Bay" },
-    { label: "Downtown Dubai", value: "Downtown Dubai" },
-  ],
-  building: [
-    { label: "APRAM 5 (86)", value: "APRAM 5 (86)" },
-    { label: "AFNAN 5 (B6)", value: "AFNAN 5 (B6)" },
-    { label: "Building C", value: "Building C" },
-  ],
-  units: [
-    { label: "806", value: "806" },
-    { label: "807", value: "807" },
-    { label: "808", value: "808" },
-    { label: "809", value: "809" },
-  ],
-};
+const userTypeOptions = [
+  { label: "Owner", value: 1 },
+  { label: "Tenant", value: 2 },
+];
+
+import { COUNTRY_CODES } from "./countryCodes";
 
 const AuthScreen = ({ navigation, onLoginSuccess }) => {
   const [activeTab, setActiveTab] = useState("login");
@@ -58,30 +51,185 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
   const [captchaKey, setCaptchaKey] = useState(Date.now());
   const [captchaInput, setCaptchaInput] = useState("");
   const [captchaInput2, setCaptchaInput2] = useState("");
+  const [showMoveIn, setShowMoveIn] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [areaOptions, setAreaOptions] = useState([]);
+  const [buildingOptions, setBuildingOptions] = useState([]);
+  const [unitOptions, setUnitOptions] = useState([]);
+  const [optionsLoading, setOptionsLoading] = useState({
+    area: false,
+    building: false,
+    units: false,
+  });
 
   const [signupForm, setSignupForm] = useState({
     userType: "",
+    userTypeId: "",
     area: "",
+    areaId: "",
     building: "",
+    buildingId: "",
     name: "",
     units: "",
+    unitId: "",
     phoneNo: "",
     emailId: "",
+    countryCode: "+91",
     otp: "",
     password: "",
     confirmPassword: "",
+    emailOtp: "",
+    emailVerified: false,
+    otpSent: false,
+    sendingOtp: false,
+    verifyingOtp: false,
+    emailVerificationError: "",
   });
 
-  const onChange = (field, value) =>
-    setSignupForm((s) => ({ ...s, [field]: value }));
+  const pickerOptions = {
+    userType: userTypeOptions,
+    area: areaOptions,
+    building: buildingOptions,
+    units: unitOptions,
+    countryCode: COUNTRY_CODES, // Add country codes to picker options
+  };
+
+  const onChange = (field, value) => {
+    setSignupForm((s) => {
+      const newState = { ...s, [field]: value };
+      // Reset email verification if email changes
+      if (field === "emailId" && value !== s.emailId) {
+        newState.emailVerified = false;
+        newState.otpSent = false;
+        newState.emailOtp = "";
+        newState.emailVerificationError = "";
+      }
+      return newState;
+    });
+  };
+
+  useEffect(() => {
+    loadAreas();
+  }, []);
+
+  const loadAreas = async () => {
+    setOptionsLoading((s) => ({ ...s, area: true }));
+    try {
+      const { ok, data } = await getAreas();
+      if (ok) {
+        const formatted =
+          (data || []).map((item) => ({
+            label: item.Text,
+            value: item.Value,
+          })) || [];
+        setAreaOptions(formatted);
+      }
+    } catch (err) {
+      console.warn("Failed to load areas", err);
+    } finally {
+      setOptionsLoading((s) => ({ ...s, area: false }));
+    }
+  };
+
+  const loadBuildings = async (areaId) => {
+    if (!areaId) {
+      setBuildingOptions([]);
+      return;
+    }
+    setOptionsLoading((s) => ({ ...s, building: true }));
+    try {
+      const { ok, data } = await getBuildingsByArea(areaId);
+      if (ok) {
+        const formatted =
+          (data || []).map((item) => ({
+            label: item.Name,
+            value: item.Id,
+          })) || [];
+        setBuildingOptions(formatted);
+      } else {
+        setBuildingOptions([]);
+      }
+    } catch (err) {
+      console.warn("Failed to load buildings", err);
+      setBuildingOptions([]);
+    } finally {
+      setOptionsLoading((s) => ({ ...s, building: false }));
+    }
+  };
+
+  const loadUnits = async (buildingId) => {
+    if (!buildingId) {
+      setUnitOptions([]);
+      return;
+    }
+    setOptionsLoading((s) => ({ ...s, units: true }));
+    try {
+      const { ok, data } = await getUnitsByBuilding(buildingId);
+      if (ok) {
+        const formatted =
+          (data || []).map((item) => ({
+            label: item.Name,
+            value: item.Id,
+          })) || [];
+        setUnitOptions(formatted);
+      } else {
+        setUnitOptions([]);
+      }
+    } catch (err) {
+      console.warn("Failed to load units", err);
+      setUnitOptions([]);
+    } finally {
+      setOptionsLoading((s) => ({ ...s, units: false }));
+    }
+  };
 
   const openPicker = (type) => {
+    console.log("openPicker called with:", type);
+    if (type === "building" && !signupForm.areaId) {
+      Alert.alert("Please select an area first.");
+      return;
+    }
+    if (type === "units" && !signupForm.buildingId) {
+      Alert.alert("Please select a building first.");
+      return;
+    }
+    console.log("Setting picker type to:", type);
+    console.log("Options for type:", pickerOptions[type]);
     setPickerType(type);
     setShowPicker(true);
   };
 
-  const selectOption = (value) => {
-    onChange(pickerType, value);
+  const selectOption = (item) => {
+    if (pickerType === "userType") {
+      setSignupForm(s => ({ ...s, userType: item.label, userTypeId: item.value }));
+    } else if (pickerType === "area") {
+      setSignupForm(s => ({
+        ...s,
+        area: item.label,
+        areaId: item.value,
+        building: "",
+        buildingId: "",
+        units: "",
+        unitId: "",
+      }));
+      setBuildingOptions([]);
+      setUnitOptions([]);
+      loadBuildings(item.value);
+    } else if (pickerType === "building") {
+      setSignupForm(s => ({
+        ...s,
+        building: item.label,
+        buildingId: item.value,
+        units: "",
+        unitId: "",
+      }));
+      setUnitOptions([]);
+      loadUnits(item.value);
+    } else if (pickerType === "units") {
+      setSignupForm(s => ({ ...s, units: item.label, unitId: item.value }));
+    } else if (pickerType === "countryCode") {
+      setSignupForm(s => ({ ...s, countryCode: item.value }));
+    }
     setShowPicker(false);
   };
 
@@ -89,61 +237,177 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
     setCaptchaKey(Date.now());
   };
 
-  const { saveSession } = useSession();
+  /* ✅ REVERT TO MOCK OTP STATE */
+  const [generatedOtp, setGeneratedOtp] = useState(null);
 
-  const handleSubmit = () => {
-    if (signupForm.password !== signupForm.confirmPassword) {
-      alert("Passwords do not match");
+  const handleSendOtp = async () => {
+    if (!signupForm.emailId) {
+      Alert.alert("Error", "Please enter your email address");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(signupForm.emailId)) {
+      Alert.alert("Error", "Please enter a valid email address");
       return;
     }
 
     try {
-      const sessionPayload = {
-        FirstName: signupForm.name || "User",
-        ClientId:
-          signupForm.phoneNo ||
-          signupForm.emailId ||
-          `temp-${Date.now()}`,
-        ClientTypeid: 1,
-        EMail: signupForm.emailId || "",
-        MobileNumber: signupForm.phoneNo || "",
+      onChange("sendingOtp", true);
+      onChange("emailVerificationError", "");
+
+      /* ✅ SIMULATE OTP (CLIENT-SIDE) */
+      const mockOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtp(mockOtp);
+      console.log("Generated OTP:", mockOtp);
+
+      // Simulate network delay
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      onChange("otpSent", true);
+      Alert.alert("OTP Sent", `Your OTP is: ${mockOtp}`);
+
+    } catch (e) {
+      console.warn("Send OTP error", e);
+      onChange("emailVerificationError", "Failed to send OTP.");
+      Alert.alert("Error", "Failed to send OTP.");
+    } finally {
+      onChange("sendingOtp", false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    console.log("handleVerifyOtp called");
+    if (!signupForm.emailOtp) {
+      Alert.alert("Error", "Please enter the OTP sent to your email");
+      return false;
+    }
+
+    try {
+      onChange("verifyingOtp", true);
+      onChange("emailVerificationError", "");
+
+      /* ✅ MOCK VERIFICATION */
+      console.log("Verifying OTP:", signupForm.emailOtp, "against", generatedOtp);
+      if (signupForm.emailOtp !== generatedOtp) {
+        throw new Error("Invalid OTP");
+      }
+
+      // Success!
+      onChange("emailVerified", true);
+      Alert.alert("Success", "Email Verified!");
+      return true;
+
+    } catch (e) {
+      console.warn("Verify OTP error", e);
+      onChange("emailVerificationError", e.message || "Invalid OTP");
+      Alert.alert("Error", e.message || "Invalid OTP. Please try again.");
+      return false;
+    } finally {
+      onChange("verifyingOtp", false);
+    }
+  };
+
+  /* The intermediate handleVerifyEmailOtp is no longer used in the new flow, 
+     but keeping it or removing it depends on if unrelated UI uses it. 
+     Since we removed the button in Step 2, we can ignore/remove it. 
+     I'll leave it but unused to minimize diffs or remove if desired. 
+     Actually, let's just focus on handleSignupNext as the primary verifier now.
+  */
+
+  const { session, saveSession } = useSession();
+
+  const handleSubmit = async () => {
+    if (signupForm.password !== signupForm.confirmPassword) {
+      Alert.alert("Passwords do not match");
+      return;
+    }
+
+    if (!signupForm.emailVerified) {
+      Alert.alert("Error", "Please verify your email OTP first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const fullPhoneNumber = (signupForm.countryCode || "+91") + (signupForm.phoneNo || "");
+
+      const payload = {
+        CustomerName: signupForm.name || "",
+        Email: signupForm.emailId || "",
+        Password: signupForm.password || "",
+        MobileNo: fullPhoneNumber,
+        CountryCode: signupForm.countryCode || "+91",
+        BuildingName: signupForm.building || "",
+        BuildingId: signupForm.buildingId || "",
+        UnitNo: signupForm.units || "",
+        UnitId: signupForm.unitId || "",
+        TenantType: signupForm.userTypeId || "",
+        areaid: signupForm.areaId || "",
       };
 
-      saveSession?.(sessionPayload);
-      alert("Success", "Registration successful — you are now logged in.");
+      const { ok, status, data } = await registerUser(payload);
 
-      navigation?.navigate?.("Home");
+      if (!ok) {
+        throw new Error(data?.message || `Register failed. Status: ${status}`);
+      }
+
+      const sessionPayload = {
+        FirstName: signupForm.name || "User",
+        ClientId: fullPhoneNumber || signupForm.emailId || `temp-${Date.now()}`,
+        ClientTypeid: signupForm.userTypeId || 1,
+        EMail: signupForm.emailId || "",
+        MobileNumber: fullPhoneNumber,
+      };
+
+
+      /* ✅ DO NOT AUTO-LOGIN. REDIRECT TO LOGIN SCREEN */
+      Alert.alert("Success", "Registration successful! Please log in.");
+      setActiveTab("login");
+      setCurrentPage(1);
+
     } catch (e) {
       console.warn("Registration handling error", e);
-      alert("Error", "Unable to complete registration. Please try again.");
+      Alert.alert("Error", e.message || "Unable to complete registration. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const nextStep = () => setCurrentPage((p) => p + 1);
   const prevStep = () => setCurrentPage((p) => Math.max(1, p - 1));
 
-  const handleSignupNext = () => {
+  /* ✅ MODIFIED: MERGED OTP VERIFICATION INTO MAIN FLOW */
+  const handleSignupNext = async () => {
     if (currentPage === 1) {
       if ((captchaInput || "").trim().toUpperCase() !== (captchaText || "").trim().toUpperCase()) {
-        alert("Error", "Invalid CAPTCHA");
+        Alert.alert("Error", "Invalid CAPTCHA");
         return;
       }
 
       if (!signupForm.userType || !signupForm.area || !signupForm.building) {
-        alert("Error", "Please fill all required fields");
+        Alert.alert("Error", "Please fill all required fields");
         return;
       }
       nextStep();
     } else if (currentPage === 2) {
       if ((captchaInput2 || "").trim().toUpperCase() !== (captchaText || "").trim().toUpperCase()) {
-        alert("Error", "Invalid CAPTCHA");
+        Alert.alert("Error", "Invalid CAPTCHA");
         return;
       }
 
       if (!signupForm.name || !signupForm.phoneNo || !signupForm.emailId) {
-        alert("Error", "Please fill all required fields");
+        Alert.alert("Error", "Please fill all required fields");
         return;
       }
+
+      /* ✅ CHECK: OTP SENT BUT NOT VERIFIED YET (Verification moved to Step 3) */
+      if (!signupForm.otpSent) {
+        Alert.alert("Error", "Please send OTP to your email first.");
+        return;
+      }
+
+      // Proceed to Step 3 without verifying OTP yet
       nextStep();
     }
   };
@@ -180,6 +444,7 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
             onNext={handleSignupNext}
             onBack={prevStep}
             refreshCaptcha={refreshCaptcha}
+            onSendOtp={handleSendOtp}
           />
         );
       case 3:
@@ -189,7 +454,8 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
             onChange={onChange}
             onSubmit={handleSubmit}
             onBack={prevStep}
-            onVerifyOtp={() => alert("Verify OTP", "Not implemented")}
+            onVerifyOtp={handleVerifyOtp}
+            onMoveIn={() => setShowMoveIn(true)}
           />
         );
       default:
@@ -207,23 +473,22 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
     activeTab === "login" ? "#eee" : "rgba(255,255,255,0.1)";
 
   return (
-    <KeyboardAvoidingView
-      style={styles.safeArea}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+    <ImageBackground
+      source={require("../../assets/images/background.webp")}
+      style={styles.background}
+      resizeMode="cover"
     >
       <StatusBar
         barStyle="light-content"
         backgroundColor="transparent"
         translucent
       />
-      <ImageBackground
-        source={require("../../assets/images/background.webp")}
-        style={styles.background}
-        resizeMode="cover"
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={styles.bgOverlay} />
-        
+
         {/* Wrap content in TouchableWithoutFeedback to dismiss keyboard */}
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View style={styles.contentContainer}>
@@ -231,15 +496,15 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
             <View
               style={[
                 styles.card,
-                activeTab === "login" 
+                activeTab === "login"
                   ? styles.cardLogin  // Apply login card style
                   : styles.cardSignup // Apply signup card style
               ]}
             >
               <View style={[
                 styles.tabContainer,
-                activeTab === "login" 
-                  ? styles.tabContainerLogin 
+                activeTab === "login"
+                  ? styles.tabContainerLogin
                   : styles.tabContainerSignup
               ]}>
                 <TouchableOpacity
@@ -279,11 +544,15 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView 
+              <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled={true}
+                keyboardDismissMode="on-drag"
+                bounces={false}
+                contentInsetAdjustmentBehavior="automatic"
               >
                 {activeTab === "login" ? (
                   <LoginScreen
@@ -297,7 +566,8 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
             </View>
           </View>
         </TouchableWithoutFeedback>
-      </ImageBackground>
+      </KeyboardAvoidingView>
+
 
       <Modal
         visible={showPicker}
@@ -318,10 +588,10 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
                     {pickerType === "userType"
                       ? "User Type"
                       : pickerType === "area"
-                      ? "Area"
-                      : pickerType === "building"
-                      ? "Building"
-                      : "Unit"}
+                        ? "Area"
+                        : pickerType === "building"
+                          ? "Building"
+                          : "Unit"}
                   </Text>
                   <TouchableOpacity onPress={() => setShowPicker(false)}>
                     <Text style={[styles.modalClose, { color: getModalTextColor() }]}>✕</Text>
@@ -329,11 +599,11 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
                 </View>
                 <FlatList
                   data={pickerOptions[pickerType] || []}
-                  keyExtractor={(item) => item.value}
+                  keyExtractor={(item, index) => item.label + index}
                   renderItem={({ item }) => (
                     <TouchableOpacity
                       style={[styles.optionItem, { borderBottomColor: getModalBorderColor() }]}
-                      onPress={() => selectOption(item.value)}
+                      onPress={() => selectOption(item)}
                     >
                       <Text style={[styles.optionText, { color: getModalTextColor() }]}>{item.label}</Text>
                     </TouchableOpacity>
@@ -344,25 +614,40 @@ const AuthScreen = ({ navigation, onLoginSuccess }) => {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-    </KeyboardAvoidingView>
+
+      {/* ✅ MOVE-IN FORM MODAL */}
+      <Modal
+        visible={showMoveIn}
+        transparent={false}
+        animationType="slide"
+        onRequestClose={() => setShowMoveIn(false)}
+      >
+        <MoveInForm
+          onClose={() => setShowMoveIn(false)}
+          session={session}
+        />
+      </Modal>
+    </ImageBackground>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#000",
   },
   contentContainer: {
-   flex: 1,
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingTop:
       Platform.OS === "android" ? StatusBar.currentHeight + 10 : 40,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
   },
   background: {
-    flex: 1,
+
     width: "100%",
+    height: "100%",
+    flex: 1,
   },
   bgOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -372,12 +657,12 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   scrollContent: {
-    flexGrow: 1,
+    // flexGrow: 1, // Removed to prevent unwanted expansion
+    paddingBottom: 10,
   },
   card: {
     width: "94%",
     maxWidth: 600,
-    maxHeight: height * 0.88,
     borderRadius: 28,
     padding: 20,
 
@@ -399,7 +684,7 @@ const styles = StyleSheet.create({
   },
   // Signup Card Style - New solid background (darker gray-blue like in the image)
   cardSignup: {
-  backgroundColor: "rgb(23,38,29)", // Forest green
+    backgroundColor: "#000000", // Black
 
 
     borderColor: "rgba(100, 100, 150, 0.4)",

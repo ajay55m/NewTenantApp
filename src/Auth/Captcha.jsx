@@ -11,7 +11,7 @@ function generateCaptchaText(length = 5) {
   return s;
 }
 
-export default function Captcha({ width = 290, height = 70, length = 5, onChange = () => {}, seed }) {
+export default function Captcha({ width = 290, height = 70, length = 5, onChange = () => { }, seed }) {
   // seed prop forces regeneration when changed (use Date.now() from parent)
   const [localSeed, setLocalSeed] = useState(seed || Date.now());
   useEffect(() => { if (seed) setLocalSeed(seed); }, [seed]);
@@ -26,7 +26,7 @@ export default function Captcha({ width = 290, height = 70, length = 5, onChange
     for (let i = 0; i < captcha.length; i++) {
       const x = paddingX + spacing * i + spacing / 2;
       const y = height / 2 + rand(-6, 6);
-      items.push({ char: captcha[i], x, y, fontSize: rand(22, 34), angle: rand(-30, 30), fill: `rgb(${rand(10,100)},${rand(10,100)},${rand(10,100)})` });
+      items.push({ char: captcha[i], x, y, fontSize: rand(22, 34), angle: rand(-30, 30), fill: `rgb(${rand(10, 100)},${rand(10, 100)},${rand(10, 100)})` });
     }
     return items;
   }, [captcha, width, height, length]);
@@ -36,13 +36,13 @@ export default function Captcha({ width = 290, height = 70, length = 5, onChange
     for (let i = 0; i < 4; i++) {
       lines.push({
         x1: rand(0, width), y1: rand(0, height), x2: rand(0, width), y2: rand(0, height),
-        stroke: `rgba(${rand(0,255)},${rand(0,255)},${rand(0,255)},${(rand(2,6)/10).toFixed(2)})`,
+        stroke: `rgba(${rand(0, 255)},${rand(0, 255)},${rand(0, 255)},${(rand(2, 6) / 10).toFixed(2)})`,
         strokeWidth: Math.random() * 2 + 0.6,
       });
     }
     const dots = [];
     for (let i = 0; i < 30; i++) {
-      dots.push({ cx: rand(0, width), cy: rand(0, height), r: Math.random()*1.8 + 0.6, fill: `rgba(0,0,0,${(rand(1,6)/10).toFixed(2)})` });
+      dots.push({ cx: rand(0, width), cy: rand(0, height), r: Math.random() * 1.8 + 0.6, fill: `rgba(0,0,0,${(rand(1, 6) / 10).toFixed(2)})` });
     }
     return { lines, dots };
   }, [localSeed, width, height]);

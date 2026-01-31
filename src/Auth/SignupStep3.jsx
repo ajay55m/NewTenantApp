@@ -64,8 +64,8 @@ const SignupStep3 = ({
           style={styles.signupInput}
           placeholder="Enter OTP"
           placeholderTextColor={COLORS.TEXT_MUTED}
-          value={signupForm.otp}
-          onChangeText={(text) => onChange("otp", text)}
+          value={signupForm.emailOtp}
+          onChangeText={(text) => onChange("emailOtp", text)}
           keyboardType="number-pad"
         />
         <TouchableOpacity
@@ -127,10 +127,12 @@ const SignupStep3 = ({
       </View>
 
       <View style={styles.signupPageButtons}>
-    
+
         <TouchableOpacity style={styles.submitButton} onPress={onSubmit}>
           <Text style={styles.submitButtonText}>SUBMIT</Text>
         </TouchableOpacity>
+
+
       </View>
 
       <Text style={styles.note}>
@@ -141,21 +143,13 @@ const SignupStep3 = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   summaryContainer: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    padding: 12,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "rgba(96, 165, 250, 0.2)",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+    marginBottom: 12,
   },
   summaryRow: {
     flexDirection: "row",
@@ -163,41 +157,41 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   summaryLabel: {
-    fontSize: 15, // Increased from 13
+    fontSize: 15,
     fontWeight: "700",
-    color: "#e5e7eb",
+    color: "rgba(255, 255, 255, 0.9)",
     flex: 1,
   },
   summaryValue: {
-    fontSize: 15, // Increased from 13
-    color: "#f9fafb",
+    fontSize: 15,
+    color: "#FFFFFF",
     flex: 2,
     textAlign: "right",
     fontWeight: "500",
   },
   signupLabelText: {
-    fontSize: 16, // Increased from 13
-    color: "#e5e7eb",
+    fontSize: 16,
+    color: "#FFFFFF",
     fontWeight: "700",
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 4,
     letterSpacing: 0.3,
   },
   signupInput: {
-    backgroundColor: COLORS.INPUT_BG,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
-    borderColor: "#d1d5db",
+    borderColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     padding: 14,
-    fontSize: 16, // Increased from 14
-    color: COLORS.TEXT_DARK,
+    fontSize: 16,
+    color: "#000000",
     flex: 1,
     marginRight: 10,
   },
   passwordInput: {
     flex: 1,
-    fontSize: 16, // Increased from default
-    color: COLORS.TEXT_DARK,
+    fontSize: 16,
+    color: "#000000",
     paddingVertical: 14,
   },
   otpContainer: {
@@ -206,18 +200,13 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   verifyIdButton: {
-    backgroundColor: COLORS.BUTTON_WARNING,
+    backgroundColor: COLORS.BRIGHT_BLUE,
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
     minWidth: 100,
-    shadowColor: "#f59e0b",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
   },
   verifyIdButtonText: {
     color: COLORS.TEXT_WHITE,
@@ -228,9 +217,9 @@ const styles = StyleSheet.create({
   signupPasswordContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: COLORS.INPUT_BG,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1.5,
-    borderColor: "#d1d5db",
+    borderColor: "rgba(255,255,255,0.1)",
     borderRadius: 12,
     paddingHorizontal: 14,
     marginBottom: 15,
@@ -247,58 +236,54 @@ const styles = StyleSheet.create({
   signupPageButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginTop: 20,
-    marginBottom: 15,
+    marginTop: 15,
+    marginBottom: 10,
     gap: 12,
   },
   backButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255,255,255,0.1)",
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
     flex: 1,
     borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.2)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: "rgba(255,255,255,0.2)",
   },
   backButtonText: {
-    color: "#e5e7eb",
-    fontSize: 17, // Increased from 16
+    color: "#FFFFFF",
+    fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.5,
   },
   submitButton: {
-    backgroundColor: COLORS.BUTTON_PRIMARY,
+    backgroundColor: COLORS.BRIGHT_BLUE,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: "center",
     flex: 1,
-    shadowColor: COLORS.BUTTON_PRIMARY,
+    shadowColor: COLORS.BRIGHT_BLUE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 5,
   },
   submitButtonText: {
-    color: COLORS.TEXT_WHITE,
-    fontSize: 17, // Increased from 16
+    color: "#FFFFFF",
+    fontSize: 17,
     fontWeight: "bold",
     letterSpacing: 0.5,
   },
   note: {
-    fontSize: 14, // Increased from 13
+    fontSize: 13,
     color: "#fbbf24",
-    marginTop: 20,
+    marginTop: 10,
     textAlign: "center",
     fontStyle: "italic",
     marginBottom: 5,
     fontWeight: "500",
-    lineHeight: 20,
+    lineHeight: 18,
   },
+  container: { width: "100%" },
 });
 
 export default SignupStep3;

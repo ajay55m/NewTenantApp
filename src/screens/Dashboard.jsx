@@ -1,4 +1,4 @@
-import React, { useEffect, useState  } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ScrollView,
   View,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  Animated,
 } from 'react-native';
 import UserCard from "../components/User";
 import { getCustomerDashboard } from "../apiConfig";
@@ -23,6 +24,13 @@ const OVERVIEW_FILTERS = [
   { key: 'last-3-months', label: 'Last 3 Months' },
 ];
 
+const STAT_ICONS = {
+  "Total Outstanding": require("../../assets/images/rank.png"),
+  "Last Paid": require("../../assets/images/billNew.png"),
+  "Active Connection": require("../../assets/images/profit.png"),
+  "Inactive Connection": require("../../assets/images/loading-bar.png"),
+};
+
 const COLOR_MAP = {
   success: '#D7F5DE',
   info: '#E5D7FF',
@@ -30,8 +38,14 @@ const COLOR_MAP = {
   warning: '#FFE3C2',
 };
 
-const StatCard = ({ label, value, percent, description, colorCss, icon, onPress }) => {
+const cleanLabel = (raw = "") =>
+  raw.replace(/<br\/>.*$/i, "").trim();
+
+const StatCard = ({ label, value, percent, description, colorCss, onPress }) => {
+  const cleanedLabel = cleanLabel(label);
   const color = COLOR_MAP[colorCss] || '#E5D7FF';
+  const iconSource = STAT_ICONS[cleanedLabel];
+
   return (
     <TouchableOpacity
       style={[
@@ -47,13 +61,20 @@ const StatCard = ({ label, value, percent, description, colorCss, icon, onPress 
     >
       <View style={styles.statRow}>
         <View style={styles.statIconBox}>
-          <Text style={styles.statIcon}>{icon}</Text>
+          {iconSource && (
+            <Image
+              source={iconSource}
+              style={styles.statIconImage}
+            />
+          )}
         </View>
 
         <View style={styles.statTextBox}>
           <Text style={styles.statValueText}>{value}</Text>
-          <Text style={styles.statLabelText}>{label.replace(/<br\/>.*<\/a>/, '')}</Text>
-          {description && <Text style={styles.statDescription}>{description}</Text>}
+          <Text style={styles.statLabelText}>{cleanedLabel}</Text>
+          {description && (
+            <Text style={styles.statDescription}>{description}</Text>
+          )}
           {percent && <Text style={styles.statPercent}>{percent}%</Text>}
         </View>
       </View>
@@ -61,10 +82,29 @@ const StatCard = ({ label, value, percent, description, colorCss, icon, onPress 
   );
 };
 
-// simple skeleton block
-const SkeletonBox = ({ style }) => (
-  <View style={[styles.skeletonBase, style]} />
-);
+// Animated skeleton box
+const SkeletonBox = ({ style }) => {
+  const [animation] = useState(new Animated.Value(0.3));
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(animation, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(animation, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return <Animated.View style={[styles.skeletonBase, style, { opacity: animation }]} />;
+};
 
 function DashboardSkeleton() {
   return (
@@ -81,14 +121,22 @@ function DashboardSkeleton() {
         <SkeletonBox style={{ width: 80, height: 32, borderRadius: 20 }} />
       </View>
 
-      {/* User card skeleton */}
-      <View style={[styles.userCard, styles.skeletonCard]}>
-        <View style={styles.skeletonAvatar} />
-        <View style={{ flex: 1, marginLeft: 12 }}>
-          <SkeletonBox style={{ width: '60%', height: 14, marginBottom: 6 }} />
-          <SkeletonBox style={{ width: '80%', height: 12 }} />
+      {/* Greeting Card skeleton (User card) */}
+      <View style={[styles.greetingCardSkeleton, styles.skeletonCard]}>
+        <View style={styles.greetingCardRow}>
+          <View style={styles.avatarSection}>
+            <View style={[styles.skeletonAvatar, { position: 'relative' }]}>
+              <View style={styles.skeletonAvatarDot} />
+            </View>
+          </View>
+          <View style={styles.greetingTextSection}>
+            <SkeletonBox style={{ width: '70%', height: 16, marginBottom: 8, borderRadius: 4 }} />
+            <SkeletonBox style={{ width: '90%', height: 12, borderRadius: 4 }} />
+          </View>
+          <View style={styles.linkButtonSection}>
+            <SkeletonBox style={{ width: 36, height: 36, borderRadius: 18 }} />
+          </View>
         </View>
-        <SkeletonBox style={{ width: 32, height: 32, borderRadius: 16 }} />
       </View>
 
       {/* Stat cards skeleton (2 x 2 grid) */}
@@ -114,7 +162,7 @@ function DashboardSkeleton() {
           <SkeletonBox style={{ width: '25%', height: 10 }} />
         </View>
         <View style={{ alignItems: 'center' }}>
-          <SkeletonBox style={{ width: 100, height: 18, borderRadius: 16, marginBottom: 6 }} />
+          <SkeletonBox style={{ width: 100, height: 16, borderRadius: 16, marginBottom: 6 }} />
           <SkeletonBox style={{ width: 2, height: 20, marginBottom: 6 }} />
           <SkeletonBox style={{ width: 100, height: 10 }} />
         </View>
@@ -169,7 +217,7 @@ function DashboardSkeleton() {
 export default function Dashboard({ onPress }) {
   const { session } = useSession();
   const loginKey = session?.loginKey;
-
+  const buildingId = session?.selectedBuilding?.BuildingId;
   const [stats, setStats] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -183,34 +231,40 @@ export default function Dashboard({ onPress }) {
     onPress && onPress(label);
   };
   useEffect(() => {
-  if (!loginKey) {
-    console.warn("⚠️ Dashboard skipped: loginKey missing");
-    return;
-  }
-
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-
-      const res = await getCustomerDashboard(loginKey);
-
-      if (!res.ok) {
-        console.error("Dashboard API error:", res.status, res.data);
-        Alert.alert("Error", "Dashboard API failed");
-        return;
-      }
-
-      setStats(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Dashboard fetch error:", err);
-      Alert.alert("Error", "Failed to load dashboard data");
-    } finally {
-      setLoading(false);
+    if (!loginKey) {
+      console.warn("⚠️ Dashboard skipped: loginKey missing");
+      return;
     }
-  };
 
-  loadDashboard();
-}, [loginKey]);
+    // OWNER must have building selected
+    if (session?.ClientTypeid === 1 && !buildingId) {
+      console.warn("⚠️ Owner dashboard skipped: building not selected");
+      return;
+    }
+
+    const loadDashboard = async () => {
+      try {
+        setLoading(true);
+
+        const res = await getCustomerDashboard(loginKey, buildingId);
+
+        if (!res.ok) {
+          console.error("Dashboard API error:", res.status, res.data);
+          Alert.alert("Error", "Dashboard API failed");
+          return;
+        }
+
+        setStats(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+        Alert.alert("Error", "Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboard();
+  }, [loginKey, buildingId]);
 
   const handleStatPress = (stat) => {
     Alert.alert('Stat Pressed', `You pressed: ${stat.Type}`);
@@ -260,10 +314,8 @@ export default function Dashboard({ onPress }) {
             key={index}
             label={stat.Type}
             value={stat.Value}
-            percent={stat.PerCent}
             description={stat.Description}
             colorCss={stat.ColorCss}
-            icon={stat.Icon}
             onPress={() => handleStatPress(stat)}
           />
         ))}
@@ -360,8 +412,8 @@ export default function Dashboard({ onPress }) {
                               height >= 60
                                 ? '#4ADE80'
                                 : height >= 30
-                                ? '#FACC15'
-                                : '#F97373',
+                                  ? '#FACC15'
+                                  : '#F97373',
                           },
                         ]}
                       />
@@ -574,7 +626,7 @@ const styles = StyleSheet.create({
   statIconImage: { width: 22, height: 22, resizeMode: 'contain' },
   statTextBox: { flex: 1 },
   statValueText: {
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '700',
     color: '#111827',
     marginBottom: 2,
@@ -863,7 +915,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-   button: {
+  button: {
     backgroundColor: "#1E3A8A",
     paddingVertical: 12,
     borderRadius: 8,
@@ -881,6 +933,7 @@ const styles = StyleSheet.create({
   // Skeleton
   skeletonBase: {
     backgroundColor: '#E5E7EB',
+    borderRadius: 4,
   },
   skeletonCard: {
     backgroundColor: '#F3F4F6',
@@ -893,5 +946,42 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     backgroundColor: '#E5E7EB',
+  },
+  skeletonAvatarDot: {
+    position: 'absolute',
+    bottom: 2,
+    right: 2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#D1D5DB',
+    borderWidth: 2,
+    borderColor: '#F3F4F6',
+  },
+
+  // Greeting Card Skeleton (User Card)
+  greetingCardSkeleton: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: 'rgba(15,23,42,0.22)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  greetingCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarSection: {
+    marginRight: 12,
+  },
+  greetingTextSection: {
+    flex: 1,
+  },
+  linkButtonSection: {
+    marginLeft: 8,
   },
 });

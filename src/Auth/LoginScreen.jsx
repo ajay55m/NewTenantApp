@@ -19,30 +19,30 @@ const LoginScreen = ({ onLoginSuccess, onShowSignup }) => {
   const [loading, setLoading] = useState(false);
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
- const handleLogin = async () => {
-  if (!email || !password) {
-    Alert.alert("Error", "Email and password are required");
-    return;
-  }
-
-  try {
-    setLoading(true);
-
-    const { ok, status, data } = await loginUser(email, password);
-
-    if (!ok) {
-      throw new Error(`Login failed. Status: ${status}`);
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Email and password are required");
+      return;
     }
 
-    // ✅ backend response goes to SessionProvider
-    onLoginSuccess?.(data);
+    try {
+      setLoading(true);
 
-  } catch (err) {
-    Alert.alert("Login Failed", err.message || "Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+      const { ok, status, data } = await loginUser(email, password);
+
+      if (!ok) {
+        throw new Error(`Login failed. Status: ${status}`);
+      }
+
+      // ✅ backend response goes to SessionProvider
+      onLoginSuccess?.(data);
+
+    } catch (err) {
+      Alert.alert("Login Failed", err.message || "Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   return (
@@ -123,8 +123,8 @@ const LoginScreen = ({ onLoginSuccess, onShowSignup }) => {
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: 12,
-    backgroundColor:   COLORS.CARD_BG_GLASS,
+    // paddingVertical: 12, // Removed to fix double padding/background
+    // backgroundColor: COLORS.CARD_BG_GLASS, // Removed to fix "black space"
   },
   logoWrap: {
     alignSelf: "center",

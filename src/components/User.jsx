@@ -1,32 +1,29 @@
 // src/User.jsx
-import React from 'react';
+import React, { useContext } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { useUser } from '../context/UserContext';
+import { UserContext } from '../context/UserContext';
 
 const SkeletonBox = ({ style }) => (
   <View style={[styles.skeletonBox, style]} />
 );
 
 export default function UserCard({
-  name: nameProp,                   // optional override from parent
-  building: buildingProp,          // optional override from parent
+  name: nameProp,
+  building: buildingProp,
   initials: initialsProp,
   onPressCopy,
-  loading: loadingProp,            // parent can still force loading if needed
+  loading: loadingProp,
 }) {
-  const { profile, loading: profileLoading } = useUser() || {};
+  const { profile, loading: profileLoading } = useContext(UserContext) || {};
 
-  // Decide which loading flag to use
   const loading =
     typeof loadingProp === 'boolean' ? loadingProp : profileLoading;
 
-  // ---------- Name from backend (same idea as GreetingCard) ----------
   const customerName =
     nameProp ||
-    profile?.FirstName ||          // from API
+    profile?.FirstName ||
     'Guest';
 
-  // ---------- Building string from backend (same idea as GreetingCard) ----------
   const buildingNameFromContext = profile?.BuildingName || '';
   const unitNameFromContext = profile?.UnitName || '';
 
@@ -38,7 +35,6 @@ export default function UserCard({
         : buildingNameFromContext
       : '—');
 
-  // ---------- Initials from customerName ----------
   const computedInitials = customerName
     .split(' ')
     .filter(Boolean)
@@ -49,26 +45,23 @@ export default function UserCard({
 
   const initials = initialsProp || computedInitials;
 
-  // ---------- Skeleton state ----------
+  // ───────── Skeleton ─────────
   if (loading) {
     return (
       <View style={[styles.userCard, styles.skeletonCard]}>
-        {/* Avatar skeleton */}
         <SkeletonBox style={styles.skeletonAvatar} />
 
-        {/* Text skeletons */}
         <View style={{ flex: 1, marginLeft: 12 }}>
           <SkeletonBox style={{ width: '60%', height: 16, marginBottom: 6 }} />
           <SkeletonBox style={{ width: '80%', height: 14 }} />
         </View>
 
-        {/* Button skeleton */}
         <SkeletonBox style={styles.skeletonButton} />
       </View>
     );
   }
 
-  // ---------- Normal state ----------
+  // ───────── Normal ─────────
   return (
     <View style={styles.userCard}>
       <View style={styles.avatarContainer}>
@@ -105,7 +98,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
 
-  // skeleton base
   skeletonCard: {
     backgroundColor: '#F3F4F6',
     elevation: 0,

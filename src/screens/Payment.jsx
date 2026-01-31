@@ -9,55 +9,55 @@ import {
   ScrollView,
   StatusBar,
   Image,
-  Alert,            
-  Linking, 
+  Alert,
+  Linking,
 } from "react-native";
 import GreetingCard from "../components/GreetingCard";
 
 const SkeletonBox = ({ style }) => (
   <View style={[styles.skeletonBox, style]} />
 );
-  const handleDownloadReceipt = async () => {
-    try {
-      const res = await fetch(
-        `https://residentapi.strata-global.com/api/get-receipt?reference=${encodeURIComponent(
-          successData.reference
-        )}`
-      );
+const handleDownloadReceipt = async () => {
+  try {
+    const res = await fetch(
+      `https://residentapi.strata-global.com/api/get-receipt?reference=${encodeURIComponent(
+        successData.reference
+      )}`
+    );
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
-      }
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
 
-      const data = await res.json();
+    const data = await res.json();
 
-      // ⚠️ Adjust `data.receiptUrl` to whatever your API actually returns
-      const receiptUrl = data.receiptUrl || data.url;
+    // ⚠️ Adjust `data.receiptUrl` to whatever your API actually returns
+    const receiptUrl = data.receiptUrl || data.url;
 
-      if (!receiptUrl) {
-        Alert.alert("Receipt not available", "Could not find receipt URL.");
-        return;
-      }
+    if (!receiptUrl) {
+      Alert.alert("Receipt not available", "Could not find receipt URL.");
+      return;
+    }
 
-      // 2. Open the URL – device will use PDF viewer / browser
-      const supported = await Linking.canOpenURL(receiptUrl);
+    // 2. Open the URL – device will use PDF viewer / browser
+    const supported = await Linking.canOpenURL(receiptUrl);
 
-      if (supported) {
-        await Linking.openURL(receiptUrl);
-      } else {
-        Alert.alert(
-          "Cannot open receipt",
-          "No application available to open this receipt."
-        );
-      }
-    } catch (err) {
-      console.log("Download receipt error:", err);
+    if (supported) {
+      await Linking.openURL(receiptUrl);
+    } else {
       Alert.alert(
-        "Error",
-        err?.message || "Failed to download receipt. Please try again."
+        "Cannot open receipt",
+        "No application available to open this receipt."
       );
     }
-  };
+  } catch (err) {
+    console.log("Download receipt error:", err);
+    Alert.alert(
+      "Error",
+      err?.message || "Failed to download receipt. Please try again."
+    );
+  }
+};
 
 const Payment = ({
   onHome,
@@ -411,13 +411,13 @@ const Payment = ({
                   </View>
 
                   <TouchableOpacity
-                   style={styles.downloadButton}
-                   activeOpacity={0.8}
-                   onPress={handleDownloadReceipt}
-                   > 
-                  <Text style={styles.downloadButtonText}>
-                   Download Receipt
-                  </Text>
+                    style={styles.downloadButton}
+                    activeOpacity={0.8}
+                    onPress={handleDownloadReceipt}
+                  >
+                    <Text style={styles.downloadButtonText}>
+                      Download Receipt
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity

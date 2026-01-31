@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const TenantApprovalPending = ({ onBack }) => {
+  console.log('TenantApprovalPending MOUNTED');
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" backgroundColor="#F5F7FB" />

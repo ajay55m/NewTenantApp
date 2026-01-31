@@ -14,12 +14,332 @@ import {
   Image,
   TextInput,
   Modal,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import GreetingCard from "../components/GreetingCard";
 import { useSession } from "../context/SessionContext";
 import { getApprovedClient } from "../apiConfig";
 
+const { width } = Dimensions.get('window');
+
+// ============================================================================
+// 🎨 SKELETON LOADING SYSTEM - INTEGRATED
+// ============================================================================
+
+/**
+ * 🌐 INTERNET SPEED DETECTOR HOOK
+ */
+const useInternetSpeed = () => {
+  const [speed, setSpeed] = useState('MEDIUM');
+  const [downloadSpeed, setDownloadSpeed] = useState(0);
+  const [uploadSpeed, setUploadSpeed] = useState(0);
+  const [latency, setLatency] = useState(0);
+  const [isChecking, setIsChecking] = useState(false);
+
+  useEffect(() => {
+    checkInternetSpeed();
+  }, []);
+
+  const checkInternetSpeed = async () => {
+    setIsChecking(true);
+
+    try {
+      const latencyStart = Date.now();
+      await fetch('https://www.google.com/favicon.ico', {
+        method: 'HEAD',
+        cache: 'no-cache',
+      });
+      const measuredLatency = Date.now() - latencyStart;
+      setLatency(measuredLatency);
+
+      const downloadStart = Date.now();
+      const imageUrl = 'https://via.placeholder.com/500';
+      const response = await fetch(imageUrl, { cache: 'no-cache' });
+      const blob = await response.blob();
+      const downloadTime = (Date.now() - downloadStart) / 1000;
+      const fileSizeInBits = blob.size * 8;
+      const speedMbps = (fileSizeInBits / downloadTime / 1000000).toFixed(2);
+
+      setDownloadSpeed(parseFloat(speedMbps));
+
+      if (measuredLatency > 500 || speedMbps < 1) {
+        setSpeed('SLOW');
+      } else if (measuredLatency > 200 || speedMbps < 5) {
+        setSpeed('MEDIUM');
+      } else {
+        setSpeed('FAST');
+      }
+    } catch (error) {
+      console.log('Speed test error:', error);
+      setSpeed('MEDIUM');
+    } finally {
+      setIsChecking(false);
+    }
+  };
+
+  return { speed, downloadSpeed, uploadSpeed, latency, isChecking, checkInternetSpeed };
+};
+
+/**
+ * 🎨 SHIMMER ANIMATION HOOK
+ */
+const useShimmerAnimation = (speed = 'MEDIUM') => {
+  const [shimmer] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    const duration = speed === 'SLOW' ? 2000 : speed === 'FAST' ? 800 : 1200;
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmer, {
+          toValue: 1,
+          duration,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmer, {
+          toValue: 0,
+          duration,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [speed]);
+
+  return shimmer;
+};
+
+/**
+ * 📦 SKELETON BOX COMPONENT
+ */
+const SkeletonBox = ({ width = '100%', height = 16, borderRadius = 4, style, shimmer }) => {
+  const opacity = shimmer
+    ? shimmer.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] })
+    : 0.3;
+
+  return (
+    <Animated.View
+      style={[
+        skeletonStyles.skeletonBox,
+        { width, height, borderRadius, opacity: shimmer ? opacity : 0.3 },
+        style,
+      ]}
+    />
+  );
+};
+
+/**
+ * 🎴 GREETING CARD SKELETON
+ */
+const GreetingCardSkeleton = ({ speed = 'MEDIUM' }) => {
+  const shimmer = useShimmerAnimation(speed);
+
+  return (
+    <View style={skeletonStyles.greetingCard}>
+      <View style={skeletonStyles.greetingHeader}>
+        <SkeletonBox width={120} height={20} shimmer={shimmer} style={{ marginBottom: 8 }} />
+        <SkeletonBox width={180} height={28} shimmer={shimmer} style={{ marginBottom: 12 }} />
+      </View>
+      <View style={skeletonStyles.greetingContent}>
+        <SkeletonBox width="70%" height={14} shimmer={shimmer} style={{ marginBottom: 6 }} />
+        <SkeletonBox width="50%" height={14} shimmer={shimmer} />
+      </View>
+    </View>
+  );
+};
+
+/**
+ * 📊 PROFILE SECTION SKELETON
+ */
+const ProfileSectionSkeleton = ({ speed = 'MEDIUM', rows = 6 }) => {
+  const shimmer = useShimmerAnimation(speed);
+
+  return (
+    <View style={skeletonStyles.sectionCard}>
+      <View style={skeletonStyles.sectionHeader}>
+        <SkeletonBox width={150} height={18} shimmer={shimmer} />
+        <SkeletonBox width={20} height={20} borderRadius={10} shimmer={shimmer} />
+      </View>
+      <View style={skeletonStyles.sectionContent}>
+        {Array.from({ length: rows }).map((_, index) => (
+          <View key={index} style={skeletonStyles.detailRow}>
+            <SkeletonBox width="40%" height={14} shimmer={shimmer} />
+            <SkeletonBox width="45%" height={14} shimmer={shimmer} />
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+/**
+ * 🎯 COMPREHENSIVE SKELETON
+ */
+const ComprehensiveSkeleton = ({ type = 'profile', speed = 'MEDIUM' }) => {
+  const renderSkeleton = () => {
+    switch (type) {
+      case 'profile':
+        return (
+          <>
+            <GreetingCardSkeleton speed={speed} />
+            <ProfileSectionSkeleton speed={speed} rows={8} />
+            <ProfileSectionSkeleton speed={speed} rows={6} />
+            <ProfileSectionSkeleton speed={speed} rows={4} />
+          </>
+        );
+      default:
+        return <GreetingCardSkeleton speed={speed} />;
+    }
+  };
+
+  return <View style={skeletonStyles.skeletonContainer}>{renderSkeleton()}</View>;
+};
+
+/**
+ * 🎨 SMART LOADING INDICATOR
+ */
+const SmartLoadingIndicator = () => {
+  const { speed, downloadSpeed, latency, isChecking } = useInternetSpeed();
+  const [opacity] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  const getSpeedColor = () => {
+    switch (speed) {
+      case 'FAST': return '#10B981';
+      case 'MEDIUM': return '#F59E0B';
+      case 'SLOW': return '#EF4444';
+      default: return '#6B7280';
+    }
+  };
+
+  const getSpeedIcon = () => {
+    switch (speed) {
+      case 'FAST': return '🚀';
+      case 'MEDIUM': return '⚡';
+      case 'SLOW': return '🐌';
+      default: return '📡';
+    }
+  };
+
+  if (isChecking) {
+    return (
+      <Animated.View style={[skeletonStyles.speedBanner, { opacity }]}>
+        <Text style={skeletonStyles.speedBannerText}>Checking connection speed...</Text>
+      </Animated.View>
+    );
+  }
+
+  return (
+    <Animated.View
+      style={[
+        skeletonStyles.speedBanner,
+        { opacity, backgroundColor: `${getSpeedColor()}20` },
+      ]}
+    >
+      <Text style={skeletonStyles.speedIcon}>{getSpeedIcon()}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[skeletonStyles.speedBannerTitle, { color: getSpeedColor() }]}>
+          {speed} Connection
+        </Text>
+        <Text style={skeletonStyles.speedBannerSubtitle}>
+          {downloadSpeed.toFixed(1)} Mbps • {latency}ms latency
+        </Text>
+      </View>
+    </Animated.View>
+  );
+};
+
+// Skeleton Styles
+const skeletonStyles = StyleSheet.create({
+  skeletonBox: {
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  skeletonContainer: {
+    paddingHorizontal: 0,
+  },
+  greetingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  greetingHeader: {
+    marginBottom: 8,
+  },
+  greetingContent: {
+    marginTop: 8,
+  },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#F9FAFB',
+  },
+  sectionContent: {
+    padding: 16,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  speedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    backgroundColor: '#F3F4F6',
+  },
+  speedIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  speedBannerTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  speedBannerSubtitle: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  speedBannerText: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+});
+
+// ============================================================================
+// END OF SKELETON SYSTEM
+// ============================================================================
 
 if (
   Platform.OS === "android" &&
@@ -71,7 +391,6 @@ function DetailRow({
               {value}
             </Text>
 
-            {/* Inline Edit icon for KYC fields */}
             {onEdit && (
               <TouchableOpacity
                 onPress={onEdit}
@@ -111,7 +430,6 @@ function DocumentRow({
       <View style={styles.rowRight}>
         <Text style={styles.detailValue}>: {documentType}</Text>
 
-        {/* View / Edit / Upload actions with icons */}
         <View style={styles.docActions}>
           {hasDocument && (
             <>
@@ -217,28 +535,18 @@ function CollapsibleSection({ title, isOpen, onPress, children }) {
   );
 }
 
-/** 🔹 Simple skeleton box placeholder */
-const SkeletonBox = ({ width = "100%", height = 14, style }) => (
-  <View style={[styles.skeletonBox, { width, height }, style]} />
-);
-
 const Profile = () => {
   const { session } = useSession();
   const clientId = session?.clientId;
 
-  if (!clientId) {
-    return null; // or a fallback UI
-  }
+  // 🌐 Internet speed detection
+  const { speed, downloadSpeed, latency, isChecking } = useInternetSpeed();
 
   const [activeSection, setActiveSection] = useState("applicant");
-
-  // 🔹 API data + loading + error
   const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true); // used also for GreetingCard skeleton
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-
-  // 🔹 KYC editing state
   const [editingKycField, setEditingKycField] = useState(null);
   const [kycValues, setKycValues] = useState({
     emiratesId: "",
@@ -250,7 +558,6 @@ const Profile = () => {
     ejariExpiry: "",
   });
 
-  // 🔹 Document preview + upload modals
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewLabel, setPreviewLabel] = useState("");
   const [uploadVisible, setUploadVisible] = useState(false);
@@ -279,71 +586,65 @@ const Profile = () => {
     setUploadVisible(true);
   };
 
- useEffect(() => {
-  const controller = new AbortController();
+  useEffect(() => {
+    const controller = new AbortController();
+
+    if (!clientId) {
+      return () => controller.abort();
+    }
+
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const { ok, status, data } = await getApprovedClient(clientId);
+
+        if (!ok) {
+          Alert.alert("Error", `API Failed ❌\nStatus: ${status}`);
+          throw new Error(`HTTP ${status}`);
+        }
+
+        if (data && typeof data === "object") {
+          setProfile(data);
+
+          setKycValues({
+            emiratesId: data.EmiratesIdNo || "—",
+            emiratesIdExp: formatDate(data.EmiratesIdExpDate),
+            passportNo: data.PassportNo || "—",
+            passportExp: formatDate(data.PassportExpDate),
+            ejariNo: data.EjariNo || "—",
+            ejariStart: formatDate(data.EjariStartDate),
+            ejariExpiry: data.EjariExpiryDate
+              ? formatDate(data.EjariExpiryDate)
+              : "-",
+          });
+        } else {
+          setError("No profile data found.");
+        }
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          Alert.alert(
+            "Connection Error",
+            err.message || "Something went wrong"
+          );
+          setError("Failed to load profile.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+
+    return () => controller.abort();
+  }, [clientId]);
 
   if (!clientId) {
-    return () => controller.abort();
+    return null;
   }
 
-  const fetchProfile = async () => {
-    
-    try {
-      setLoading(true);
-      setError(null);
-
-      // ✅ use centralized apiConfig
-      const { ok, status, data } = await getApprovedClient(clientId);
-
-      if (!ok) {
-        Alert.alert("Error", `API Failed ❌\nStatus: ${status}`);
-        throw new Error(`HTTP ${status}`);
-      }
-
-      if (data && typeof data === "object") {
-       
-
-         setProfile(data);
-
-        // ✅ initialize editable KYC values
-        setKycValues({
-          emiratesId: data.EmiratesIdNo || "—",
-          emiratesIdExp: formatDate(data.EmiratesIdExpDate),
-          passportNo: data.PassportNo || "—",
-          passportExp: formatDate(data.PassportExpDate),
-          ejariNo: data.EjariNo || "—",
-          ejariStart: formatDate(data.EjariStartDate),
-          ejariExpiry: data.EjariExpiryDate
-            ? formatDate(data.EjariExpiryDate)
-            : "-",
-        });
-      } else {
-        setError("No profile data found.");
-      }
-    } catch (err) {
-      if (err.name !== "AbortError") {
-        Alert.alert(
-          "Connection Error",
-          err.message || "Something went wrong"
-        );
-        setError("Failed to load profile.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  fetchProfile();
-
-  return () => controller.abort();
-}, [clientId]);
-
-
   const p = profile || {};
-  const isEmptyProfile =
-  !profile || Object.keys(profile).length === 0;
-
-
   const customerName = p.FirstName || "—";
   const moveInDate = formatDate(p.MoveInRequestDate);
   const dob = formatDate(p.DOB);
@@ -365,8 +666,8 @@ const Profile = () => {
               p.ClientTypeid === 1
                 ? "Owner"
                 : p.ClientTypeid === 2
-                ? "Tenant"
-                : "Unknown"
+                  ? "Tenant"
+                  : "Unknown"
             }
           />
           <DetailRow label="Move-in Request Date" value={moveInDate} />
@@ -536,62 +837,60 @@ const Profile = () => {
             contentContainerStyle={styles.scrollContent}
             showsVerticalScrollIndicator={false}
           >
-{!isEmptyProfile && (
-  <GreetingCard
-    loading={loading}
-    name={customerName}
-    building={building ? `${building} - ${unit}` : "—"}
-  />
-)}
+            {/* 🌐 Smart Loading Indicator - Shows connection speed */}
+            {!isChecking && <SmartLoadingIndicator />}
 
+            {/* Greeting Card with intelligent loading state */}
+            {loading ? (
+              <GreetingCardSkeleton speed={speed} />
+            ) : (
+              <GreetingCard
+                loading={false}
+                name={customerName}
+                building={building ? `${building} - ${unit}` : "—"}
+              />
+            )}
 
             <View style={styles.profileHeader}>
               <Text style={styles.profileHeaderText}>Profile</Text>
             </View>
 
-            {/* Error message if API fails */}
             {error && (
               <View style={styles.errorBox}>
                 <Text style={styles.errorText}>{error}</Text>
               </View>
             )}
 
-            {/* Skeleton vs real content */}
-{loading ? (
-  /* LOADING */
-  <View style={styles.mainCard}>
-    {/* skeleton stays same */}
-  </View>
-) : !profile || Object.keys(profile).length === 0 ? (
-  /* EMPTY STATE – SAME PAGE */
-  <View style={styles.mainCard}>
-    <View style={styles.emptyBox}>
-      <Image
-        source={require("../../assets/images/account.png")}
-        style={{ width: 50, height: 50, marginBottom: 16 }}
-      />
-      <Text style={styles.emptyTitle}>No Data Found</Text>
-      <Text style={styles.emptyText}>
-        Profile information is not available for this customer.
-      </Text>
-    </View>
-  </View>
-) : (
-  /* DATA FOUND */
-  <View style={styles.mainCard}>
-    {sectionData.map((section) => (
-      <CollapsibleSection
-        key={section.id}
-        title={section.title}
-        isOpen={activeSection === section.id}
-        onPress={() => toggleSection(section.id)}
-      >
-        {section.content}
-      </CollapsibleSection>
-    ))}
-  </View>
-)}
-
+            {/* Intelligent content rendering based on loading state */}
+            {loading ? (
+              <ComprehensiveSkeleton type="profile" speed={speed} />
+            ) : !profile || Object.keys(profile).length === 0 ? (
+              <View style={styles.mainCard}>
+                <View style={styles.emptyBox}>
+                  <Image
+                    source={require("../../assets/images/account.png")}
+                    style={{ width: 50, height: 50, marginBottom: 16 }}
+                  />
+                  <Text style={styles.emptyTitle}>No Data Found</Text>
+                  <Text style={styles.emptyText}>
+                    Profile information is not available for this customer.
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.mainCard}>
+                {sectionData.map((section) => (
+                  <CollapsibleSection
+                    key={section.id}
+                    title={section.title}
+                    isOpen={activeSection === section.id}
+                    onPress={() => toggleSection(section.id)}
+                  >
+                    {section.content}
+                  </CollapsibleSection>
+                ))}
+              </View>
+            )}
 
             <View style={{ height: 120 }} />
           </ScrollView>
@@ -691,8 +990,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
   },
-
-  /* Profile header strip */
   profileHeader: {
     backgroundColor: "#F5F5DC",
     paddingHorizontal: 12,
@@ -708,15 +1005,13 @@ const styles = StyleSheet.create({
     elevation: 12,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-     marginBottom: 12,
+    marginBottom: 12,
   },
   profileHeaderText: {
     fontSize: 20,
     fontWeight: "900",
     color: "rgb(3,10,112)",
   },
-
-  /* Main card container */
   mainCard: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
@@ -730,14 +1025,10 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 3,
   },
-
-  /* Section container */
   sectionContainer: {
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
-
-  /* Section rows */
   sectionRow: {
     backgroundColor: "rgb(245,245,245)",
     paddingHorizontal: 16,
@@ -765,19 +1056,13 @@ const styles = StyleSheet.create({
   sectionRowIconActive: {
     color: "#ffffff",
   },
-
-  /* Content container with animation */
   contentContainer: {
     backgroundColor: "#f8fafc",
   },
-
-  /* Section content */
   sectionContent: {
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-
-  /* Detail rows for content */
   detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -808,8 +1093,6 @@ const styles = StyleSheet.create({
     flex: 1,
     flexShrink: 1,
   },
-
-  // KYC inline edit
   inlineEditBtn: {
     marginLeft: 8,
     padding: 4,
@@ -817,7 +1100,7 @@ const styles = StyleSheet.create({
   inlineEditIcon: {
     width: 16,
     height: 16,
-    tintColor: "#2563EB", // remove if you want original PNG colors
+    tintColor: "#2563EB",
     resizeMode: "contain",
   },
   kycInput: {
@@ -830,7 +1113,6 @@ const styles = StyleSheet.create({
     textAlign: "right",
     backgroundColor: "#ffffff",
   },
-
   verifiedBadge: {
     marginLeft: 8,
     width: 20,
@@ -845,8 +1127,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-
-  // document action buttons
   docActions: {
     flexDirection: "row",
     alignItems: "center",
@@ -867,15 +1147,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#CBD5E1",
     marginHorizontal: 6,
   },
-
-  // 🔹 skeleton placeholder style
-  skeletonBox: {
-    backgroundColor: "#e5e7eb",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-
-  // 🔹 small error box style
   errorBox: {
     backgroundColor: "#FEE2E2",
     borderRadius: 8,
@@ -887,8 +1158,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "500",
   },
-
-  // Modals
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(15,23,42,0.6)",
@@ -935,24 +1204,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   emptyBox: {
-  paddingVertical: 40,
-  paddingHorizontal: 20,
-  alignItems: "center",
-},
-
-emptyTitle: {
-  fontSize: 16,
-  fontWeight: "700",
-  color: "#111827",
-  marginBottom: 6,
-},
-
-emptyText: {
-  fontSize: 13,
-  color: "#6b7280",
-  textAlign: "center",
-},
-
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    alignItems: "center",
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 6,
+  },
+  emptyText: {
+    fontSize: 13,
+    color: "#6b7280",
+    textAlign: "center",
+  },
 });
 
 export default Profile;

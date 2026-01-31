@@ -1,16 +1,17 @@
 // src/GreetingCard.jsx
-import React from "react";
+import React, { useContext } from "react";
 import { View, Text, Image, StyleSheet } from "react-native";
-import { useUser } from "../context/UserContext"; // 👈 adjust path if needed
+import { UserContext } from "../context/UserContext";
 
 const SkeletonBox = ({ style }) => (
   <View style={[styles.skeletonBox, style]} />
 );
 
 const GreetingCard = ({ loading: loadingProp, name: nameProp, building: buildingProp }) => {
-  const { profile, loading: profileLoading } = useUser() || {};
+  const { profile, loading: profileLoading } = useContext(UserContext) || {};
 
-  const loading = typeof loadingProp === "boolean" ? loadingProp : profileLoading;
+  const loading =
+    typeof loadingProp === "boolean" ? loadingProp : profileLoading;
 
   const customerName =
     nameProp ||
@@ -36,9 +37,7 @@ const GreetingCard = ({ loading: loadingProp, name: nameProp, building: building
           <SkeletonBox
             style={{ width: 32, height: 32, borderRadius: 8, marginRight: 10 }}
           />
-          <SkeletonBox
-            style={{ width: "35%", height: 14, marginRight: 6 }}
-          />
+          <SkeletonBox style={{ width: "35%", height: 14, marginRight: 6 }} />
           <SkeletonBox style={{ width: "25%", height: 14 }} />
         </View>
       </View>
@@ -68,16 +67,18 @@ const GreetingCard = ({ loading: loadingProp, name: nameProp, building: building
 
 const styles = StyleSheet.create({
   greetingCard: {
-    backgroundColor: "#f8f9ff",
-    borderRadius: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
     paddingVertical: 16,
     paddingHorizontal: 16,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
   },
   skeletonCard: {
     backgroundColor: "#f2f2f2",
